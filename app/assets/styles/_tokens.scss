@@ -1,0 +1,79 @@
+// Design tokens exposed as CSS custom properties so they can be themed at runtime (light / dark).
+// Colour pairs are chosen to meet WCAG 2.2 AA: text ≥ 4.5:1, UI components ≥ 3:1 on their surface.
+
+:root {
+  // Typography — system stack: no web font to download (LCP, offline).
+  --font-family-base: system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.2;
+  --line-height-base: 1.5;
+
+  // Spacing — 4px scale.
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  // Shape
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-full: 999px;
+
+  // Touch targets: above the WCAG 2.5.8 minimum (24px) for comfortable mobile use.
+  --touch-target-min: 2.75rem;
+
+  // Motion — neutralised under prefers-reduced-motion (see main.scss).
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 400ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  // Colours — light theme
+  --color-bg: #f6f5f2;
+  --color-surface: #fff;
+  --color-surface-muted: #eceae4;
+  --color-border: #d6d3cb;
+  --color-text: #1d1c1a;
+  --color-text-muted: #5c5a55;
+  --color-primary: #3a4fd6;
+  --color-primary-contrast: #fff;
+  --color-focus-ring: #3a4fd6;
+
+  // Freshness states (CONCEPT §5). Never used as the only carrier of information.
+  --color-state-fresh: #1e7a46;
+  --color-state-soon: #a15c00;
+  --color-state-due: #c0392b;
+  --color-state-late: #8e1b1b;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #151513;
+    --color-surface: #1f1f1c;
+    --color-surface-muted: #2a2a26;
+    --color-border: #3d3c37;
+    --color-text: #f1efe9;
+    --color-text-muted: #aeaba3;
+    --color-primary: #8b9bff;
+    --color-primary-contrast: #10132b;
+    --color-focus-ring: #8b9bff;
+    --color-state-fresh: #4cc38a;
+    --color-state-soon: #f0a73a;
+    --color-state-due: #ff6b5e;
+    --color-state-late: #ff9a92;
+  }
+}

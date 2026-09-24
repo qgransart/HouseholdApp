@@ -1,0 +1,45 @@
+{
+  "name": "household-app",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "pnpm lint:js && pnpm lint:style",
+    "lint:js": "eslint .",
+    "lint:style": "stylelint \"app/**/*.{scss,vue}\"",
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "nuxt": "^4.5.2",
+    "vue": "^3.5.43",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.17.0",
+    "eslint": "^10.11.0",
+    "postcss-html": "^2.0.0",
+    "sass": "^1.105.0",
+    "stylelint": "^17.15.0",
+    "stylelint-config-recommended-vue": "^2.0.0",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1",
+    "vue-tsc": "^3.3.11"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild",
+      "unrs-resolver"
+    ]
+  }
+}
