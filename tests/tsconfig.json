@@ -1,0 +1,5 @@
+{
+  // Type-checks the tests with the same settings as the code they cover (shared/).
+  "extends": "../.nuxt/tsconfig.shared.json",
+  "include": ["./**/*", "../shared/**/*"]
+}
