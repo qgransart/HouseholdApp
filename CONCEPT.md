@@ -3,7 +3,7 @@
 > Document de référence du concept produit. Il sert de base aux décisions d'architecture (étape 2) et au développement (étape 3).
 > Toute évolution fonctionnelle doit être reportée ici.
 
-**Statut :** concept figé pour le MVP — v0.1
+**Statut :** concept figé pour le MVP — v0.2 (règles précisées lors de l'implémentation du domaine)
 **Utilisateurs cibles :** un foyer de 2 personnes (usage privé, non publié sur les stores)
 
 ---
@@ -63,7 +63,7 @@ L'app répond à deux problèmes distincts :
 |---|---|---|---|
 | **Périodique** | Draps tous les 7 j | Fenêtre **glissante** : l'échéance repart de la dernière validation | Barre de fraîcheur |
 | **Quota hebdo** | Préparer 4 repas / semaine | Fenêtre **fixe** du lundi au dimanche, remise à zéro le lundi | Compteur « 2/4 cette semaine » |
-| **Sur signal** | Sortir les poubelles | Invisible tant que personne ne signale. Un membre appuie sur **« C'est plein »** → une quête apparaît chez le responsable + notification. **Délai max** optionnel : la tâche se déclenche d'elle-même si aucun signal n'a eu lieu depuis N jours (hygiène) | Bouton de signal ; quête prioritaire une fois déclenchée |
+| **Sur signal** | Sortir les poubelles | Invisible tant que personne ne signale. Un membre appuie sur **« C'est plein »** → une quête apparaît chez le responsable + notification. **Délai max** optionnel : la tâche se déclenche d'elle-même N jours après sa dernière réalisation (hygiène) ; une tâche jamais réalisée attend son premier signal manuel | Bouton de signal ; quête prioritaire une fois déclenchée |
 
 Attributs communs d'une tâche : nom, catégorie, type, **taille** (§6), durée estimée (minutes), paramètres propres au type (intervalle, quota, délai max), active / inactive.
 
@@ -81,9 +81,11 @@ Exemple : draps (intervalle 7 j) changés il y a 5 j → fraîcheur **29 %**.
 |---|---|---|---|
 | > 50 % | Propre | « Nickel » | Vert |
 | 20 – 50 % | Bientôt | « À prévoir » | Orange |
-| < 20 % | À faire | « À faire » | Rouge |
-| 0 % | En retard | « En retard de N j » | Rouge foncé |
+| < 20 % (jusqu'au jour d'échéance inclus) | À faire | « À faire » | Rouge |
+| Échéance dépassée | En retard | « En retard de N j » | Rouge foncé |
 
+- Une tâche est « À faire » le jour de son échéance et « En retard » seulement à partir du lendemain : une tâche quotidienne faite la veille s'affiche « À faire », pas « En retard ». Une tâche jamais réalisée est « À faire ».
+- Les jours sont des **jours calendaires** dans le fuseau du foyer : l'heure de validation et les changements d'heure ne décalent jamais une échéance.
 - **Aucune pénalité** en cas de retard ; seul l'affichage change.
 - La couleur n'est **jamais** la seule information : libellé + pourcentage toujours présents (WCAG 1.4.1).
 - **Reporter** : décaler une tâche de N jours.
@@ -103,7 +105,7 @@ Chaque tâche a une **taille**, qui détermine sa récompense. Une validation ra
 | **L** | 15 – 45 min | 40 |
 | **XL** | > 45 min | 80 |
 
-- **Bonus d'anticipation** : +20 % si une tâche périodique est validée avant de passer au rouge (fraîcheur ≥ 20 %).
+- **Bonus d'anticipation** : +20 % si une tâche périodique est validée pendant qu'elle est « À prévoir » (fraîcheur entre 20 et 50 %). Pas de bonus sur une tâche encore « Nickel » : cela encouragerait à refaire des tâches propres pour gagner des points.
 - Le barème est **global et ajustable** : on ne saisit jamais un nombre de points par tâche.
 
 ---
@@ -116,8 +118,13 @@ Chaque tâche a une **taille**, qui détermine sa récompense. Une validation ra
 
 1. Prendre les tâches actives des catégories du membre.
 2. Placer en tête les tâches **sur signal** déclenchées.
-3. Trier le reste par **urgence** : fraîcheur croissante (périodiques) ; retard sur le quota au prorata de la semaine (quotas).
-4. Ajouter des quêtes jusqu'à atteindre le **budget quotidien** (défaut : **35 min**, réglable par membre).
+3. Ne retenir que les tâches qui **valent la peine** (urgence ≥ 0,5) et trier par **urgence**, un score commun aux types :
+   - périodique : jours écoulés / intervalle (1 = échéance aujourd'hui, > 1 = en retard) ;
+   - quota : réalisations restantes / jours restants dans la semaine ; une seule occurrence proposée par jour.
+4. Ajouter des quêtes jusqu'à atteindre le **budget quotidien** (défaut : **35 min**, réglable par membre). Les tâches déjà faites aujourd'hui restent affichées comme terminées et **consomment le budget** : terminer une quête n'en fait pas apparaître une nouvelle indéfiniment.
+5. La tâche la plus urgente est **toujours proposée**, même si elle dépasse le budget restant : sinon une grosse tâche (four, vitres) ne serait jamais planifiée.
+
+Pendant le **mode vacances**, aucune quête n'est proposée.
 
 **Bouton « J'ai 10 min »** : parmi toutes les tâches du foyer, propose la plus urgente dont la durée est ≤ 10 min (une tâche de l'autre membre est présentée comme coup de main). Il est possible de passer à la suggestion suivante.
 
@@ -129,12 +136,12 @@ Chaque tâche a une **taille**, qui détermine sa récompense. Une validation ra
 
 - Objectif hebdomadaire d'XP **commun au foyer**, calculé automatiquement : **80 % de l'XP théorique de la semaine** (somme des tâches attendues d'après le catalogue actif).
 - Objectif atteint → la **récompense commune** de la semaine est débloquée et la **série** s'incrémente.
-- **Série hebdomadaire** : nombre de semaines consécutives avec jauge atteinte. **1 joker par mois** pour la préserver.
+- **Série hebdomadaire** : nombre de semaines consécutives avec jauge atteinte. **1 joker par mois** pour la préserver. La semaine en cours ne compte qu'une fois la jauge atteinte et ne casse jamais la série ; une semaine entièrement en vacances est neutre.
 
 ### 8.2 Niveau du foyer
 
 - L'XP cumulée des deux membres fait monter le **niveau du foyer** (« Appartement niveau 7 »).
-- Courbe de progression à définir (croissante, pour que les premiers niveaux arrivent vite).
+- Courbe de progression : passer du niveau *n* au niveau *n + 1* demande **100 × n^1,5 XP** (100, 283, 520, 800…). Les premiers niveaux arrivent en quelques jours, les suivants en plusieurs semaines.
 - Badges ponctuels (ex. « Première semaine parfaite », « 10 coups de main », « Four vaincu »).
 
 ### 8.3 Porte-monnaie individuel et boutique
@@ -289,6 +296,6 @@ Règles :
 ## 16. Questions ouvertes
 
 - Liste des récompenses de la boutique (à définir ensemble).
-- Courbe de niveau du foyer et liste des badges.
+- Liste des badges.
 - Nom de l'application.
 - Valeurs du catalogue et du barème : à ajuster après 2 à 3 semaines d'usage réel.
