@@ -116,10 +116,26 @@ function isWorthDoing(urgency: Urgency): boolean {
   return urgency.triggeredBySignal || urgency.score >= QUEST_URGENCY_THRESHOLD
 }
 
-/** Signals first, then most urgent, then shortest; the id makes the order deterministic. */
+/**
+ * Expected occurrences per week. At equal urgency, frequent tasks (dishes, sweeping) matter more
+ * for daily comfort than rare ones: they win the tie before duration does.
+ */
+function weeklyFrequency(task: Task): number {
+  switch (task.type) {
+    case 'periodic':
+      return 7 / task.intervalDays
+    case 'quota':
+      return task.weeklyQuota
+    case 'signal':
+      return task.maxDelayDays ? 7 / task.maxDelayDays : 0
+  }
+}
+
+/** Signals first, then most urgent, then most frequent, then shortest; the id makes the order deterministic. */
 function compareQuests(a: Quest, b: Quest): number {
   return Number(b.urgency.triggeredBySignal) - Number(a.urgency.triggeredBySignal)
     || b.urgency.score - a.urgency.score
+    || weeklyFrequency(b.task) - weeklyFrequency(a.task)
     || a.task.durationMin - b.task.durationMin
     || a.task.id.localeCompare(b.task.id)
 }

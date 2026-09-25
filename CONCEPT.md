@@ -122,6 +122,7 @@ Chaque tâche a une **taille**, qui détermine sa récompense. Une validation ra
 3. Ne retenir que les tâches qui **valent la peine** (urgence ≥ 0,5) et trier par **urgence**, un score commun aux types :
    - périodique : jours écoulés / intervalle (1 = échéance aujourd'hui, > 1 = en retard) ;
    - quota : réalisations restantes / jours restants dans la semaine ; une seule occurrence proposée par jour.
+   - à urgence égale, la tâche **la plus fréquente** passe d'abord (la vaisselle avant le four), puis la plus courte.
 4. Ajouter des quêtes jusqu'à atteindre le **budget quotidien** (défaut : **35 min**, réglable par membre). Les tâches déjà faites aujourd'hui restent affichées comme terminées et **consomment le budget** : terminer une quête n'en fait pas apparaître une nouvelle indéfiniment.
 5. La tâche la plus urgente est **toujours proposée**, même si elle dépasse le budget restant : sinon une grosse tâche (four, vitres) ne serait jamais planifiée.
 

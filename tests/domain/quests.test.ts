@@ -37,6 +37,17 @@ describe('generateDailyQuests', () => {
     expect(ids(generateDailyQuests({ ...context(), budgetMin: 35 }).pending)).toEqual(['signal', 'late', 'soon'])
   })
 
+  it('breaks urgency ties with the most frequent task, then the shortest', () => {
+    const dirty = [
+      periodic({ id: 'weekly-short', durationMin: 5, intervalDays: 7 }),
+      periodic({ id: 'daily-long', durationMin: 15, intervalDays: 1 }),
+      periodic({ id: 'daily-short', durationMin: 5, intervalDays: 1 }),
+    ]
+    // Never done: every task has urgency 1.
+    const quests = generateDailyQuests({ ...context({ tasks: dirty, completions: [], withSignal: false }), budgetMin: 60 })
+    expect(ids(quests.pending)).toEqual(['daily-short', 'daily-long', 'weekly-short'])
+  })
+
   it('stops at the daily budget, signals not counted', () => {
     expect(ids(generateDailyQuests({ ...context(), budgetMin: 20 }).pending)).toEqual(['signal', 'late'])
   })
