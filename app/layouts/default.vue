@@ -1,12 +1,6 @@
 <script setup lang="ts">
+// Routing to the onboarding is handled by the onboarding middleware.
 const { isReady } = useHousehold()
-
-// A device without household starts with the onboarding.
-watch(isReady, (ready) => {
-  if (ready === false) {
-    void navigateTo('/bienvenue', { replace: true })
-  }
-}, { immediate: true })
 </script>
 
 <template>
@@ -19,6 +13,7 @@ watch(isReady, (ready) => {
       <GameBottomNav />
       <GameToast />
       <GameCelebrationDialog />
+      <GameUpdatePrompt />
     </template>
     <p
       v-else
