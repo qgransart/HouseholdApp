@@ -1,79 +1,92 @@
-// Design tokens exposed as CSS custom properties so they can be themed at runtime (light / dark).
-// Colour pairs are chosen to meet WCAG 2.2 AA: text ≥ 4.5:1, UI components ≥ 3:1 on their surface.
+// Design tokens of the "cosy game" design system (ARCHITECTURE §10), as CSS custom properties.
+// Single daytime theme for the MVP (D10): components only use tokens, so a night theme can be
+// added later by redefining them, without touching any component.
+// Text pairs meet WCAG 2.2 AA (≥ 4.5:1), UI components ≥ 3:1 on their surface.
 
 :root {
-  // Typography — system stack: no web font to download (LCP, offline).
-  --font-family-base: system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', arial, sans-serif;
+  color-scheme: light;
+
+  // Typography (self-hosted, see _fonts.scss)
+  --font-display: 'Fredoka Variable', 'Nunito Variable', system-ui, sans-serif;
+  --font-body: 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.5rem;
-  --font-size-2xl: 2rem;
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-bold: 700;
-  --line-height-tight: 1.2;
-  --line-height-base: 1.5;
+  --font-size-lg: 1.15rem;
+  --font-size-xl: 1.35rem;
+  --font-size-2xl: 1.75rem;
+  --font-weight-regular: 600;
+  --font-weight-bold: 800;
+  --line-height-tight: 1.15;
+  --line-height-base: 1.4;
 
-  // Spacing — 4px scale.
+  // Spacing — 4px scale
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
-  --space-12: 3rem;
+  --gutter: 16px;
 
   // Shape
-  --radius-sm: 0.375rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
   --radius-full: 999px;
+  --border-width: 3px;
+  --press-depth: 4px;
 
-  // Touch targets: above the WCAG 2.5.8 minimum (24px) for comfortable mobile use.
+  // Layout
+  --content-max-width: 27rem;
   --touch-target-min: 2.75rem;
 
-  // Motion — neutralised under prefers-reduced-motion (see main.scss).
-  --duration-fast: 120ms;
-  --duration-base: 200ms;
-  --duration-slow: 400ms;
-  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  // Motion — neutralised under prefers-reduced-motion (see main.scss)
+  --duration-fast: 80ms;
+  --duration-base: 250ms;
+  --duration-slow: 600ms;
+  --easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --easing-bounce: cubic-bezier(0.3, 1.6, 0.5, 1);
 
-  // Colours — light theme
-  --color-bg: #f6f5f2;
+  // World
+  --color-sky: #d9f0ff;
+  --color-sky-deep: #b9e2fb;
+  --color-paper: #fffdf7;
   --color-surface: #fff;
-  --color-surface-muted: #eceae4;
-  --color-border: #d6d3cb;
-  --color-text: #1d1c1a;
-  --color-text-muted: #5c5a55;
-  --color-primary: #3a4fd6;
-  --color-primary-contrast: #fff;
-  --color-focus-ring: #3a4fd6;
+  --color-cream: #fff8ec;
+  --color-wood: #c98b55;
+  --color-wood-dark: #9a6232;
 
-  // Freshness states (CONCEPT §5). Never used as the only carrier of information.
-  --color-state-fresh: #1e7a46;
-  --color-state-soon: #a15c00;
-  --color-state-due: #c0392b;
-  --color-state-late: #8e1b1b;
+  // Ink & lines
+  --color-text: #2b2d42;
+  --color-text-muted: #5d6079;
+  --color-line: #d7dbe8;
+  --color-line-strong: #b8bdd3;
+  --color-overlay: rgb(43 45 66 / 55%);
 
-  color-scheme: light dark;
-}
+  // Game colours: each has a darker shade for the 3D press shadow
+  --color-teal: #17a398;
+  --color-teal-dark: #0f7c73;
+  --color-teal-soft: #d8f5f2;
+  --color-gold: #ffc53d;
+  --color-gold-dark: #d9960a;
+  --color-gold-ink: #8a5a00;
+  --color-gold-soft: #fff1c7;
+  --color-gem: #7b5cff;
+  --color-gem-dark: #5638d6;
+  --color-gem-soft: #ece7ff;
+  --color-red: #e5484d;
+  --color-red-dark: #b3282d;
+  --color-red-soft: #fff5f5;
+  --color-success: #2f9e44;
+  --color-success-soft: #eaf7ee;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #151513;
-    --color-surface: #1f1f1c;
-    --color-surface-muted: #2a2a26;
-    --color-border: #3d3c37;
-    --color-text: #f1efe9;
-    --color-text-muted: #aeaba3;
-    --color-primary: #8b9bff;
-    --color-primary-contrast: #10132b;
-    --color-focus-ring: #8b9bff;
-    --color-state-fresh: #4cc38a;
-    --color-state-soon: #f0a73a;
-    --color-state-due: #ff6b5e;
-    --color-state-late: #ff9a92;
-  }
+  // Freshness states (CONCEPT §5). Never the only carrier of information.
+  --color-state-fresh: #2f9e44;
+  --color-state-soon: #f08c00;
+  --color-state-soon-text: #b86b00;
+  --color-state-due: #e5484d;
+  --color-state-late: #b3282d;
+  --color-state-empty: #d7dbe8;
 }

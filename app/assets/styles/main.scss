@@ -1,5 +1,7 @@
+@use 'fonts';
 @use 'tokens';
 @use 'mixins';
+@use 'fx';
 
 *,
 *::before,
@@ -17,11 +19,16 @@ html {
 
 body {
   min-height: 100dvh;
-  font-family: var(--font-family-base);
+  font-family: var(--font-body);
   font-size: var(--font-size-md);
+  font-weight: 700;
   line-height: var(--line-height-base);
   color: var(--color-text);
-  background-color: var(--color-bg);
+  background:
+    radial-gradient(circle at 15% 8%, #fff 0 3rem, transparent 3.1rem),
+    radial-gradient(circle at 85% 30%, #fff 0 2rem, transparent 2.1rem),
+    linear-gradient(var(--color-sky), var(--color-sky-deep));
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -40,11 +47,24 @@ select {
   color: inherit;
 }
 
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+ul[role='list'],
+ol[role='list'] {
+  padding: 0;
+  list-style: none;
+}
+
 h1,
 h2,
 h3,
 h4 {
-  line-height: var(--line-height-tight);
+  @include mixins.display-text;
+
   text-wrap: balance;
 }
 
@@ -54,6 +74,10 @@ h4 {
 
 .visually-hidden {
   @include mixins.visually-hidden;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 @media (prefers-reduced-motion: reduce) {
