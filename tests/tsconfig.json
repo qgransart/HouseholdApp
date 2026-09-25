@@ -1,8 +1,8 @@
 {
-  // Type-checks the tests with the same settings as the code they cover (shared/, app/db).
+  // Type-checks the tests with the same settings as the code they cover (shared/, app/db, server services).
   "extends": "../.nuxt/tsconfig.shared.json",
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "include": ["./**/*", "../shared/**/*", "../app/db/**/*"]
+  "include": ["./**/*", "../shared/**/*", "../app/db/**/*", "../server/db/**/*", "../server/services/**/*"]
 }
