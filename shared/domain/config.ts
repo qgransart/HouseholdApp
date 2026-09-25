@@ -35,3 +35,6 @@ export const LEVEL_BASE_XP = 100
 export const LEVEL_EXPONENT = 1.5
 
 export const STREAK_JOKERS_PER_MONTH = 1
+
+/** A completion can be undone during this delay (tap mistake), then it is final (CONCEPT §9). */
+export const UNDO_WINDOW_MINUTES = 5
