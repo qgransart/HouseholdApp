@@ -1,3 +1,6 @@
 <template>
-  <NuxtPage />
+  <GameIconSprite />
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>
