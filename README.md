@@ -27,6 +27,8 @@ pnpm dev          # http://localhost:3000
 | `pnpm lint` | ESLint (TS / Vue, style inclus) + Stylelint (SCSS, convention BEM) |
 | `pnpm typecheck` | Vérification des types (`vue-tsc`) |
 | `pnpm test` | Tests unitaires (Vitest) |
+| `pnpm db:generate` | Génère une migration SQL après une modification de `server/db/schema.ts` |
+| `pnpm db:migrate` | Applique les migrations sur `NUXT_DATABASE_URL` |
 
 ## Installer l'app sur Android
 
@@ -40,4 +42,4 @@ Le service worker n'est actif qu'en build de production (`pnpm build && pnpm pre
 
 ## Variables d'environnement
 
-Voir [`.env.example`](./.env.example). Le dépôt est public : aucune valeur réelle ne doit être commitée.
+Voir [`.env.example`](./.env.example) et le guide de mise en place des services : [`docs/DEPLOIEMENT.md`](./docs/DEPLOIEMENT.md). Le dépôt est public : aucune valeur réelle ne doit être commitée.

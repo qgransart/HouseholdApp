@@ -3,7 +3,7 @@
 > Document de référence technique. Complète [`CONCEPT.md`](./CONCEPT.md) (le « quoi ») en décrivant le « comment ».
 > Toute décision structurante doit être ajoutée au journal des décisions (§12).
 
-**Statut :** v0.2 — direction visuelle « jeu » validée (maquette `docs/mockups/quetes.html`)
+**Statut :** v0.3 — serveur et authentification en place (lot 4)
 
 ---
 
@@ -57,12 +57,13 @@
 | Primitives accessibles | **Reka UI** (headless), au cas par cas | Voir §3.1 |
 | Identifiants | **`uuid`** (v7) | Générés côté client, triables chronologiquement |
 | Validation | **Zod** (schémas dans `shared/`) | Même validation client et serveur |
-| ORM / migrations | **Drizzle** | Léger, typé, compatible serverless, SQL lisible |
+| ORM / migrations | **Drizzle** + **drizzle-kit** (migrations SQL versionnées dans `server/db/migrations`) | Léger, typé, compatible serverless, SQL lisible |
+| Driver Postgres | **postgres.js** (`prepare: false`) | Transactions, TCP standard sur l'endpoint poolé de Neon : aucun couplage à un driver propriétaire |
 | Base serveur | **Neon Postgres** (Free) | Postgres standard, mise en veille auto sans pause manuelle |
 | Auth | **`nuxt-auth-utils`** + Google OAuth | Sessions en cookie scellé, pas de mot de passe ni d'emailing |
 | Push | **`web-push`** + clés VAPID | Standard W3C ; FCM transparent sur Android |
 | Planification | **cron-job.org** → `/api/cron/tick` toutes les 15 min | Heures de notification réglables par membre ; les crons Vercel Hobby sont trop limités |
-| Tests | **Vitest** + **fake-indexeddb** | Priorité au domaine pur, aux écritures locales et au protocole de sync |
+| Tests | **Vitest** + **fake-indexeddb** + **PGlite** | Domaine pur, écritures locales, services serveur sur un vrai Postgres embarqué (mêmes migrations qu'en production) |
 | Lint | **`@nuxt/eslint`** + Stylelint (SCSS / BEM) | |
 | CI | **GitHub Actions** (gratuit en repo public) | Lint, typecheck, tests sur chaque push / PR |
 | Hébergement | **Vercel Hobby** (preset Nitro `vercel`) | Déploiement automatique depuis GitHub |
@@ -225,13 +226,15 @@ Signal manuel ──► /api/sync/push ──► push immédiat à l'autre membr
 
 | Sujet | Mesure |
 |---|---|
-| Authentification | Google OAuth via `nuxt-auth-utils`, session en cookie scellé `HttpOnly`, `Secure`, `SameSite=Lax` |
-| Autorisation | Liste blanche d'emails (**variable d'environnement**, jamais dans le repo public) ; chaque route vérifie la session **et** l'appartenance au foyer ; toutes les requêtes filtrées par `household_id` |
-| Invitation | Code à usage unique, stocké haché, avec expiration |
+| Authentification | Google OAuth via `nuxt-auth-utils` (`/auth/google`), email vérifié exigé, session en cookie scellé `HttpOnly`, `Secure`, `SameSite=Lax`, valable 90 jours |
+| Identité | Un membre = un compte Google (`members.email`, unique, en minuscules). Le créateur du foyer est lié à l'onboarding, le second membre via une invitation |
+| Usage hors ligne | Un appareil qui a déjà un foyer ouvre le jeu sans session : seule la synchronisation exige d'être connecté |
+| Autorisation | Liste blanche d'emails (**variable d'environnement**, jamais dans le repo public), **revérifiée à chaque requête** (retirer un email coupe l'accès sans attendre l'expiration de la session) ; chaque route vérifie la session **et** l'appartenance au foyer ; toutes les requêtes filtrées par `household_id` |
+| Invitation | Code de 6 caractères sans ambiguïté (pas de 0/O, 1/I/L), tiré uniformément (Web Crypto), stocké haché (SHA-256), à usage unique, valable 48 h ; un nouveau code invalide le précédent |
 | Route cron | Secret comparé en temps constant ; réponse neutre sinon |
 | Entrées | Validation Zod systématique côté serveur (le client n'est jamais digne de confiance, même en usage privé) |
-| En-têtes | CSP stricte, HSTS, `X-Content-Type-Options`, `Referrer-Policy` |
-| Secrets | `NUXT_SESSION_PASSWORD`, `NUXT_OAUTH_GOOGLE_*`, `DATABASE_URL`, `VAPID_*`, `CRON_SECRET`, `ALLOWED_EMAILS` → variables d'environnement Vercel ; `.env` ignoré par Git ; `.env.example` sans valeurs commité |
+| En-têtes | CSP (`default-src 'self'`, `frame-ancestors 'none'`…), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. Limite connue : `script-src` autorise `'unsafe-inline'`, requis par la configuration inline du shell Nuxt ; à durcir avec des hashes |
+| Secrets | `NUXT_SESSION_PASSWORD`, `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET`, `NUXT_DATABASE_URL`, `NUXT_ALLOWED_EMAILS`, `VAPID_*`, `CRON_SECRET` → variables d'environnement Vercel ; `.env` ignoré par Git ; `.env.example` sans valeurs commité |
 
 ---
 
@@ -287,6 +290,8 @@ Référence visuelle : [`docs/mockups/quetes.html`](./docs/mockups/quetes.html) 
 | D10 | Thème clair unique au MVP, tokens prêts pour un thème nuit | Thème sombre dès le MVP | Un thème nuit « jeu » demande un vrai travail de design ; reporté sans dette grâce aux tokens |
 | D11 | `<dialog>` natif pour modales et bottom sheets | Reka UI Dialog | Accessibilité fournie par la plateforme, zéro dépendance |
 | D12 | `baseline_on` sur les tâches, renseigné à l'onboarding (état « propre / moyen / sale » par pièce) | Tout « à faire » au premier lancement, validations fictives | Démarrage réaliste sans XP artificielle ; donne aussi une référence au délai max des tâches sur signal |
+| D13 | postgres.js + tests sur PGlite | Driver Neon serverless (HTTP) ; base de test Docker | Transactions et portabilité ; tests rapides, sans service externe, sur les vraies migrations |
+| D14 | Le foyer naît sur l'appareil (local-first) et arrive sur le serveur par la **première synchronisation** ; l'invitation lie le second compte à une ligne `members` existante | Création du foyer par une API dédiée | Un seul chemin d'écriture (la sync) ; l'écran « Rejoindre avec un code » arrive donc avec le lot 5 |
 
 ---
 
