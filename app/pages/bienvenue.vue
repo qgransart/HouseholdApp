@@ -13,9 +13,10 @@ const STATES: { value: RoomState, label: string }[] = [
 ]
 
 const db = useDatabase()
+const { user } = useUserSession()
 
 const householdName = ref('Appartement')
-const memberNames = reactive<[string, string]>(['', ''])
+const memberNames = reactive<[string, string]>([user.value?.name.split(' ')[0] ?? '', ''])
 const rooms = reactive(STANDARD_CATALOGUE.map(room => ({
   key: room.key,
   name: room.name,
@@ -51,6 +52,7 @@ async function submit() {
     await createHousehold(db, {
       name: householdName.value,
       memberNames: [memberNames[0], memberNames[1]],
+      firstMemberEmail: user.value?.email ?? null,
       rooms: rooms.map(({ key, ownerIndex, state }) => ({ key, ownerIndex, state })),
       now: new Date(),
     })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { currentMember, partner, switchMember } = useHousehold()
+const { currentMember, partner, canSwitchMember, switchMember } = useHousehold()
 const { level, coins, streak } = useGame()
 const sound = useSound()
 
@@ -20,12 +20,13 @@ watch(coins, (value, previous) => {
 
 <template>
   <header class="app-hud">
-    <button
+    <component
+      :is="canSwitchMember ? 'button' : 'div'"
       class="app-hud__avatar"
-      type="button"
+      :type="canSwitchMember ? 'button' : undefined"
       :style="{ '--xp-ratio': level.ratio }"
-      :aria-label="partner ? `Joueur : ${currentMember?.displayName}. Passer à ${partner.displayName}` : `Joueur : ${currentMember?.displayName}`"
-      @click="switchMember"
+      :aria-label="canSwitchMember && partner ? `Joueur : ${currentMember?.displayName}. Passer à ${partner.displayName}` : undefined"
+      @click="canSwitchMember && switchMember()"
     >
       <span
         class="app-hud__initial"
@@ -35,7 +36,7 @@ watch(coins, (value, previous) => {
         class="app-hud__level tabular-nums"
         aria-hidden="true"
       >{{ level.level }}</span>
-    </button>
+    </component>
 
     <div class="app-hud__progress">
       <p class="app-hud__name">

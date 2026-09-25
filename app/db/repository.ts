@@ -105,6 +105,8 @@ export async function loadSnapshot(db: HouseholdDatabase, householdId: string): 
 export interface CreateHouseholdInput {
   name: string
   memberNames: [string, string]
+  /** Google account of the person creating the household (the second joins by invitation). */
+  firstMemberEmail?: string | null
   rooms: { key: string, ownerIndex: 0 | 1, state: RoomState }[]
   timezone?: string
   now: Date
@@ -137,7 +139,7 @@ export async function createHousehold(db: HouseholdDatabase, input: CreateHouseh
       id: memberIds[i]!,
       householdId,
       displayName: displayName.trim(),
-      email: null,
+      email: i === 0 ? input.firstMemberEmail?.trim().toLowerCase() || null : null,
       dailyBudgetMin: DEFAULT_DAILY_BUDGET_MIN,
     })), input.now)
     await writeRows(db, 'categories', categories, input.now)

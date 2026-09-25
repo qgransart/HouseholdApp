@@ -4,6 +4,8 @@ withDefaults(defineProps<{
   size?: 'md' | 'lg'
   block?: boolean
   type?: 'button' | 'submit'
+  /** Renders a link instead of a button (full page navigation, e.g. to the Google sign-in). */
+  href?: string
 }>(), {
   variant: 'teal',
   size: 'md',
@@ -13,13 +15,15 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <button
-    :type="type"
+  <component
+    :is="href ? 'a' : 'button'"
+    :type="href ? undefined : type"
+    :href="href"
     class="chunky-button"
     :class="[`chunky-button--${variant}`, `chunky-button--${size}`, { 'chunky-button--block': block }]"
   >
     <slot />
-  </button>
+  </component>
 </template>
 
 <style lang="scss" scoped>
@@ -39,6 +43,7 @@ withDefaults(defineProps<{
   font-size: 1.05rem;
   font-weight: 600;
   color: var(--button-ink);
+  text-decoration: none;
   background: var(--button-bg);
   border-radius: var(--radius-md);
   box-shadow: 0 var(--press-depth) 0 var(--button-shade);

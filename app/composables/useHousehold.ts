@@ -6,6 +6,7 @@ import { getMeta, loadSnapshot, META_CURRENT_MEMBER_ID, META_HOUSEHOLD_ID, setMe
  */
 export const useHousehold = createSharedComposable(() => {
   const db = useDatabase()
+  const { user } = useUserSession()
 
   const identity = useLiveQuery(async () => ({
     householdId: await getMeta<string>(db, META_HOUSEHOLD_ID) ?? null,
@@ -19,10 +20,22 @@ export const useHousehold = createSharedComposable(() => {
     [householdId],
   )
 
+  /** The member linked to the signed-in Google account, if any. */
+  const signedInMember = computed(() => {
+    const email = user.value?.email
+    return email ? snapshot.value?.members.find(member => member.email === email) ?? null : null
+  })
+
   const currentMember = computed(() => {
     const members = snapshot.value?.members ?? []
-    return members.find(member => member.id === identity.value?.currentMemberId) ?? members[0] ?? null
+    return signedInMember.value
+      ?? members.find(member => member.id === identity.value?.currentMemberId)
+      ?? members[0]
+      ?? null
   })
+
+  /** Switching player is only for a device not linked to an account (tests, lot 2 households). */
+  const canSwitchMember = computed(() => signedInMember.value === null)
 
   const partner = computed(() => snapshot.value?.members.find(member => member.id !== currentMember.value?.id) ?? null)
 
@@ -30,10 +43,10 @@ export const useHousehold = createSharedComposable(() => {
   const isReady = computed(() => identity.value === undefined ? undefined : identity.value.householdId !== null)
 
   async function switchMember() {
-    if (partner.value) {
+    if (canSwitchMember.value && partner.value) {
       await setMeta(db, META_CURRENT_MEMBER_ID, partner.value.id)
     }
   }
 
-  return { snapshot, householdId, currentMember, partner, isReady, switchMember }
+  return { snapshot, householdId, currentMember, partner, isReady, canSwitchMember, switchMember }
 })

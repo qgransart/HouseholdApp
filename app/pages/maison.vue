@@ -71,6 +71,8 @@ function detail(task: Task): string {
         </li>
       </ul>
     </GamePanel>
+
+    <GameAccountPanel />
   </div>
 </template>
 

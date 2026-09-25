@@ -34,6 +34,7 @@ async function setup(state: 'clean' | 'average' | 'dirty' = 'dirty') {
   const { householdId, memberIds } = await createHousehold(db, {
     name: ' Appartement ',
     memberNames: ['Quentin', 'Camille'],
+    firstMemberEmail: ' Quentin@Example.com ',
     rooms: STANDARD_CATALOGUE.map(room => ({ key: room.key, ownerIndex: room.defaultLot === 'A' ? 0 : 1, state })),
     now: NOW,
   })
@@ -46,7 +47,7 @@ describe('createHousehold', () => {
   it('creates the household, both members, one category per room and the whole catalogue', async () => {
     const { snapshot, memberIds } = await setup()
     expect(snapshot.household.name).toBe('Appartement')
-    expect(snapshot.members.map(m => m.displayName)).toEqual(['Quentin', 'Camille'])
+    expect(snapshot.members.map(m => [m.displayName, m.email])).toEqual([['Quentin', 'quentin@example.com'], ['Camille', null]])
     expect(snapshot.categories.map(c => c.name)).toEqual(STANDARD_CATALOGUE.map(room => room.name))
     expect(snapshot.tasks).toHaveLength(STANDARD_CATALOGUE.flatMap(room => room.tasks).length)
     expect(snapshot.categories.find(c => c.icon === 'sofa')?.ownerMemberId).toBe(memberIds[1])
