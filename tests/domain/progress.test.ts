@@ -22,6 +22,14 @@ describe('buildTaskProgress', () => {
     expect(progress.get('periodic')?.lastCompletedOn).toBe('2026-09-22')
   })
 
+  it('uses the baseline as reference until a more recent completion exists', () => {
+    const withBaseline = [periodic({ baselineOn: d('2026-09-15') }), signalTask()]
+    expect(buildTaskProgress({ tasks: withBaseline, completions: [], signals: [], today, timeZone: TZ }).get('periodic')?.lastCompletedOn).toBe('2026-09-15')
+
+    const completions = [completion({ completedAt: at('2026-09-20') })]
+    expect(buildTaskProgress({ tasks: withBaseline, completions, signals: [], today, timeZone: TZ }).get('periodic')?.lastCompletedOn).toBe('2026-09-20')
+  })
+
   it('ignores undone completions', () => {
     const progress = build({ completions: [completion({ completedAt: at('2026-09-22'), undoneAt: at('2026-09-22') })] })
     expect(progress.get('periodic')?.lastCompletedOn).toBeNull()

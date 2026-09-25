@@ -15,7 +15,7 @@ export const categories: Category[] = [
   { id: 'cat-partner', ownerMemberId: PARTNER },
 ]
 
-const base = { categoryId: 'cat-me', size: 'M', durationMin: 10, active: true, snoozedUntil: null } as const
+const base = { categoryId: 'cat-me', size: 'M', durationMin: 10, active: true, snoozedUntil: null, baselineOn: null } as const
 
 export const periodic = (overrides: Partial<PeriodicTask> = {}): PeriodicTask =>
   ({ ...base, id: 'periodic', name: 'Periodic', type: 'periodic', intervalDays: 7, ...overrides })

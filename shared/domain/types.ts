@@ -11,6 +11,11 @@ interface TaskBase {
   active: boolean
   /** The task is left out of quests until this date (inclusive). */
   snoozedUntil: LocalDate | null
+  /**
+   * Reference date used as if the task had been done that day, until a later completion exists.
+   * Set at onboarding from the declared state of each room (ARCHITECTURE D12).
+   */
+  baselineOn: LocalDate | null
 }
 
 /** Sliding window: the next due date is computed from the last completion. */

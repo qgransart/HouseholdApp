@@ -3,6 +3,7 @@ import type { Completion, Signal, Task } from './types'
 
 /** Per-task facts derived from the event log, consumed by every other rule. */
 export interface TaskProgress {
+  /** Date of the latest effective completion, or the task baseline if more recent. */
   lastCompletedOn: LocalDate | null
   completionsThisWeek: number
   /** Members who completed the task today. */
@@ -30,7 +31,7 @@ export function buildTaskProgress({ tasks, completions, signals, today, timeZone
   const weekEnd = endOfWeek(today)
 
   const progress = new Map<string, MutableTaskProgress>(
-    tasks.map(task => [task.id, { lastCompletedOn: null, completionsThisWeek: 0, completedTodayBy: new Set(), hasOpenSignal: false }]),
+    tasks.map(task => [task.id, { lastCompletedOn: task.baselineOn, completionsThisWeek: 0, completedTodayBy: new Set(), hasOpenSignal: false }]),
   )
 
   const effectiveCompletionIds = new Set<string>()
