@@ -1,9 +1,9 @@
 # HouseholdApp — Architecture
 
 > Document de référence technique. Complète [`CONCEPT.md`](./CONCEPT.md) (le « quoi ») en décrivant le « comment ».
-> Toute décision structurante doit être ajoutée au journal des décisions (§11).
+> Toute décision structurante doit être ajoutée au journal des décisions (§12).
 
-**Statut :** v0.1 — validée, avant initialisation du projet
+**Statut :** v0.2 — direction visuelle « jeu » validée (maquette `docs/mockups/quetes.html`)
 
 ---
 
@@ -50,16 +50,19 @@
 | Langage | **TypeScript `strict`** | Un seul langage client / serveur / domaine |
 | PWA | **`@vite-pwa/nuxt`**, stratégie `injectManifest` | Service Worker personnalisé requis pour le push |
 | Base locale | **Dexie.js** + `liveQuery` | Wrapper IndexedDB fiable, requêtes réactives |
-| État UI | **Pinia** | Session et préférences uniquement ; les données métier vivent dans Dexie (une seule source de vérité locale) |
-| Styles | **SCSS + BEM**, tokens en custom properties CSS | Design minimaliste sur mesure, conventions de l'équipe |
+| État UI | Composables Vue ; **Pinia** au premier besoin réel | Session et préférences uniquement ; les données métier vivent dans Dexie (une seule source de vérité locale) |
+| Styles | **SCSS + BEM**, tokens en custom properties CSS | Design system « jeu cosy » sur mesure (§10), conventions de l'équipe |
+| Polices | **Fredoka** (titres) + **Nunito** (texte), auto-hébergées via **Fontsource** (variable, sous-ensemble latin) | Identité « jeu » ; fichiers servis par l'app et précachés → fonctionnent hors ligne, aucun appel à Google Fonts |
+| Dialogues | **`<dialog>` natif** (`showModal()`) | Piège de focus, `Escape`, fond inerte et restauration du focus fournis par le navigateur |
 | Primitives accessibles | **Reka UI** (headless), au cas par cas | Voir §3.1 |
+| Identifiants | **`uuid`** (v7) | Générés côté client, triables chronologiquement |
 | Validation | **Zod** (schémas dans `shared/`) | Même validation client et serveur |
 | ORM / migrations | **Drizzle** | Léger, typé, compatible serverless, SQL lisible |
 | Base serveur | **Neon Postgres** (Free) | Postgres standard, mise en veille auto sans pause manuelle |
 | Auth | **`nuxt-auth-utils`** + Google OAuth | Sessions en cookie scellé, pas de mot de passe ni d'emailing |
 | Push | **`web-push`** + clés VAPID | Standard W3C ; FCM transparent sur Android |
 | Planification | **cron-job.org** → `/api/cron/tick` toutes les 15 min | Heures de notification réglables par membre ; les crons Vercel Hobby sont trop limités |
-| Tests | **Vitest** | Priorité au domaine pur et au protocole de sync |
+| Tests | **Vitest** + **fake-indexeddb** | Priorité au domaine pur, aux écritures locales et au protocole de sync |
 | Lint | **`@nuxt/eslint`** + Stylelint (SCSS / BEM) | |
 | CI | **GitHub Actions** (gratuit en repo public) | Lint, typecheck, tests sur chaque push / PR |
 | Hébergement | **Vercel Hobby** (preset Nitro `vercel`) | Déploiement automatique depuis GitHub |
@@ -70,7 +73,8 @@ Reka UI (ex-Radix Vue) fournit des composants **headless** : comportement, gesti
 
 Règle d'usage :
 - **Composants simples** (boutons, cartes, jauges, listes) → HTML sémantique natif, pas de Reka UI.
-- **Composants à comportement complexe** où l'accessibilité est difficile à réussir soi-même → Reka UI : dialogues / bottom sheets (piège de focus, `Escape`, restauration du focus), menus déroulants, onglets, toasts, sélecteurs.
+- **Dialogues et bottom sheets** → `<dialog>` natif : le navigateur gère déjà le piège de focus, `Escape` et l'inertie du fond.
+- **Composants à comportement complexe** où l'accessibilité est difficile à réussir soi-même → Reka UI : menus déroulants, onglets, sélecteurs, listes de choix.
 
 La dépendance n'est ajoutée qu'au premier besoin réel ; les composants importés sont tree-shakés.
 
@@ -99,6 +103,7 @@ shared/                   # Code partagé client ↔ serveur (convention Nuxt 4)
   schemas/                # Schémas Zod (entités, payloads de sync)
   types/
 tests/
+docs/mockups/             # Maquettes HTML de référence
 public/                   # Icônes, manifest assets
 ```
 
@@ -126,11 +131,12 @@ Règles :
 households          id, name, timezone, settings (jsonb)
 members             id, household_id, email, display_name, daily_budget_min, notif_prefs (jsonb)
 invitations         id, household_id, code_hash, expires_at, used_at          -- serveur uniquement
-categories          id, household_id, name, icon, owner_member_id, sort_order
+categories          id, household_id, name, icon, owner_member_id, sort_order   -- icon : clé d'une illustration de pièce (§10)
 tasks               id, household_id, category_id, name,
                     type ('periodic' | 'quota' | 'signal'), size ('S' | 'M' | 'L' | 'XL'),
                     duration_min, interval_days, weekly_quota, max_delay_days,
-                    signal_label, active, snoozed_until
+                    signal_label, active, snoozed_until,
+                    baseline_on        -- date de référence tant qu'aucune validation n'existe (état déclaré à l'onboarding)
 completions    ⚡   id, household_id, task_id, member_id, completed_at, xp, coins, is_help, undone_at
 signals        ⚡   id, household_id, task_id, raised_by, raised_at, is_automatic, resolved_by_completion_id
 rewards             id, household_id, name, cost, kind ('personal' | 'common'), active
@@ -229,7 +235,34 @@ Signal manuel ──► /api/sync/push ──► push immédiat à l'autre membr
 
 ---
 
-## 10. Qualité, accessibilité, performance
+## 10. Interface : design system « jeu cosy »
+
+Référence visuelle : [`docs/mockups/quetes.html`](./docs/mockups/quetes.html) (maquette validée). L'app doit **ressembler à un jeu mobile familier**, pas à un outil de productivité.
+
+### 10.1 Éléments de jeu
+
+| Élément | Rôle | Donnée du domaine |
+|---|---|---|
+| **HUD** (barre du haut) | Niveau du foyer (pastille + anneau d'XP), pièces, série | `computeLevel`, `computeCoinBalance`, `computeStreak` |
+| **Plan de la maison** | Une **pièce par catégorie**, avec barre de vie, poussière (sale) ou étincelles (propre) ; filtre les quêtes | Moyenne des fraîcheurs des tâches périodiques de la catégorie |
+| **Coffre de la semaine** | Jauge commune ; s'ouvre quand l'objectif est atteint | `computeWeeklyGauge` |
+| **Quêtes du jour** | Cartes avec difficulté en étoiles (taille S → XL), récompenses, barre de vie | `generateDailyQuests` |
+| **Défi éclair** | « J'ai 10 min », tirage façon dé / machine à sous | `suggestQuickTasks` |
+| **Alertes** | Tâches « sur signal », cloche + « ! » sur la pièce | Signaux ouverts |
+| **Célébrations** | Confettis, pièces qui volent vers le HUD, « +XP », modales niveau / coffre | Événements de validation |
+
+### 10.2 Règles
+
+- **Palette « jour »** unique pour le MVP (ciel, papier, bois ; teal / or / gemme violette / rouge d'alerte), en tokens CSS. Le thème nuit est reporté après le MVP (D10) : aucune couleur n'est codée en dur dans les composants, pour pouvoir l'ajouter sans les toucher.
+- **Boutons « 3D »** (ombre portée qui s'écrase à l'appui) pour toutes les actions de jeu.
+- **Sons** synthétisés en Web Audio (aucun fichier), **désactivés par défaut** ; **vibrations** courtes à la validation.
+- **Mouvement** : chaque animation a un état final lisible sans elle ; toutes sont coupées sous `prefers-reduced-motion`.
+- **Accessibilité inchangée** (§11) : les effets sont `aria-hidden`, l'information passe par le texte, les rôles ARIA (`meter`, `progressbar`) et une région `aria-live`.
+- Une **icône de pièce** (clé stockée dans `categories.icon`) illustre chaque catégorie : cuisine, salle de bain, chambre, séjour, buanderie, poubelles, extensible.
+
+---
+
+## 11. Qualité, accessibilité, performance
 
 - **Tests** : Vitest sur `shared/domain` (fraîcheur, quêtes, jauge, niveaux, calendrier) et sur le protocole de sync (idempotence, LWW, curseur). Pas de test d'UI superflu.
 - **CI** : lint (ESLint + Stylelint), `nuxi typecheck`, tests — bloquants sur les PR.
@@ -238,7 +271,7 @@ Signal manuel ──► /api/sync/push ──► push immédiat à l'autre membr
 
 ---
 
-## 11. Journal des décisions
+## 12. Journal des décisions
 
 | # | Décision | Alternatives écartées | Raison principale |
 |---|---|---|---|
@@ -249,10 +282,15 @@ Signal manuel ──► /api/sync/push ──► push immédiat à l'autre membr
 | D5 | SCSS + BEM + Reka UI headless | Nuxt UI, Vuetify, Tailwind | Design sur mesure, conventions de l'équipe, accessibilité des composants complexes |
 | D6 | cron-job.org toutes les 15 min | Vercel Cron (Hobby), GitHub Actions `schedule` (secours) | Précision et heures réglables par membre |
 | D7 | Mode SPA (`ssr: false`) | SSR / hybride | Aucun besoin SEO ; PWA hors ligne plus simple |
+| D8 | Direction visuelle « jeu cosy » (maquette validée) | Style minimaliste « outil » (première maquette) | Motivation et plaisir d'usage priment ; familier (codes des jeux mobiles) |
+| D9 | Fredoka + Nunito auto-hébergées (Fontsource) | Police système, Google Fonts en ligne | Identité « jeu » ; hors ligne et sans dépendance réseau (~60 Ko précachés) |
+| D10 | Thème clair unique au MVP, tokens prêts pour un thème nuit | Thème sombre dès le MVP | Un thème nuit « jeu » demande un vrai travail de design ; reporté sans dette grâce aux tokens |
+| D11 | `<dialog>` natif pour modales et bottom sheets | Reka UI Dialog | Accessibilité fournie par la plateforme, zéro dépendance |
+| D12 | `baseline_on` sur les tâches, renseigné à l'onboarding (état « propre / moyen / sale » par pièce) | Tout « à faire » au premier lancement, validations fictives | Démarrage réaliste sans XP artificielle ; donne aussi une référence au délai max des tâches sur signal |
 
 ---
 
-## 12. Points à vérifier à la mise en place
+## 13. Points à vérifier à la mise en place
 
 - Limites exactes des offres gratuites (Vercel Hobby, Neon Free, cron-job.org) au moment du déploiement.
 - Version stable courante de Nuxt et compatibilité de `@vite-pwa/nuxt`.

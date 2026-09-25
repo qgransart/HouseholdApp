@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quêtes de la maison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap">
+<style>
+  /* Single "daytime" game world, painted explicitly so it reads the same on any host theme. */
+  :root {
+    color-scheme: light;
+    --font-display: 'Fredoka', 'Nunito', system-ui, sans-serif;
+    --font-body: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+    --sky: #d9f0ff;
+    --sky-deep: #b9e2fb;
+    --paper: #fffdf7;
+    --ink: #2b2d42;
+    --ink-soft: #5d6079;
+    --line: #d7dbe8;
+    --line-strong: #b8bdd3;
+
+    --teal: #17a398;
+    --teal-dark: #0f7c73;
+    --gold: #ffc53d;
+    --gold-dark: #d9960a;
+    --gem: #7b5cff;
+    --gem-dark: #5638d6;
+    --red: #e5484d;
+    --red-dark: #b3282d;
+    --orange: #f08c00;
+    --green: #2f9e44;
+    --wood: #c98b55;
+    --wood-dark: #9a6232;
+
+    --radius: 1rem;
+    --radius-lg: 1.5rem;
+    --press: 0 4px 0;
+  }
+
+  [hidden] { display: none !important; }
+  *, *::before, *::after { box-sizing: border-box; }
+  * { margin: 0; }
+
+  body {
+    font-family: var(--font-body);
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 15% 8%, #fff 0 3rem, transparent 3.1rem),
+      radial-gradient(circle at 85% 30%, #fff 0 2rem, transparent 2.1rem),
+      linear-gradient(var(--sky), var(--sky-deep));
+    background-attachment: fixed;
+    padding-inline: 16px;
+    padding-block: 0 var(--space-bottom, 6rem);
+  }
+
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+  :focus-visible { outline: 3px solid var(--gem); outline-offset: 3px; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .game {
+    display: grid;
+    gap: 1.25rem;
+    max-width: 27rem;
+    margin-inline: auto;
+  }
+
+  .game__note {
+    padding-top: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+
+  /* ---------- 3D "press" button, shared ---------- */
+  .chunky {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.1rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #fff;
+    background: var(--teal);
+    border-radius: var(--radius);
+    box-shadow: var(--press) var(--teal-dark);
+    transition: transform 80ms, box-shadow 80ms;
+  }
+
+  .chunky svg { flex: none; width: 1.3rem; height: 1.3rem; }
+  .chunky:active { transform: translateY(4px); box-shadow: 0 0 0 var(--teal-dark); }
+  .chunky--gold { color: var(--ink); background: var(--gold); box-shadow: var(--press) var(--gold-dark); }
+  .chunky--gold:active { box-shadow: 0 0 0 var(--gold-dark); }
+  .chunky--gem { background: var(--gem); box-shadow: var(--press) var(--gem-dark); }
+  .chunky--gem:active { box-shadow: 0 0 0 var(--gem-dark); }
+  .chunky--ghost { color: var(--ink); background: var(--paper); box-shadow: var(--press) var(--line-strong); }
+  .chunky--ghost:active { box-shadow: 0 0 0 var(--line-strong); }
+  .chunky:disabled { opacity: 0.5; cursor: default; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+    margin-inline: -16px;
+    padding: 0.75rem 16px;
+    background: var(--paper);
+    border-bottom: 3px solid var(--line);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+
+  .hud__avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    background: conic-gradient(var(--gem) calc(var(--xp, 0) * 1turn), var(--line) 0);
+    transition: --xp 400ms;
+  }
+
+  .hud__avatar-inner {
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--teal);
+    border-radius: 50%;
+  }
+
+  .hud__level {
+    position: absolute;
+    right: -0.35rem;
+    bottom: -0.3rem;
+    min-width: 1.6rem;
+    padding: 0 0.3rem;
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    background: var(--gem);
+    border: 2px solid var(--paper);
+    border-radius: 999px;
+  }
+
+  .hud__who { display: grid; gap: 0.2rem; min-width: 0; }
+  .hud__name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; line-height: 1.1; }
+
+  .hud__xp {
+    position: relative;
+    height: 0.8rem;
+    overflow: hidden;
+    background: var(--line);
+    border-radius: 999px;
+  }
+
+  .hud__xp-fill {
+    height: 100%;
+    background: linear-gradient(var(--gem), var(--gem-dark));
+    border-radius: inherit;
+    transition: width 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .hud__xp-text { font-size: 0.72rem; color: var(--ink-soft); white-space: nowrap; }
+
+  .hud__stats { display: flex; gap: 0.4rem; align-items: center; }
+
+  .stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.55rem 0.25rem 0.3rem;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    background: #fff;
+    border: 2px solid var(--line);
+    border-radius: 999px;
+  }
+
+  .stat svg { width: 1.3rem; height: 1.3rem; flex: none; }
+  .stat--bump { animation: bump 300ms; }
+
+  @keyframes bump { 50% { transform: scale(1.18); } }
+
+  .sound-toggle {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    color: var(--ink-soft);
+    border-radius: 50%;
+  }
+
+  .sound-toggle[aria-pressed="true"] { color: var(--teal); }
+  .sound-toggle svg { width: 1.25rem; height: 1.25rem; }
+
+  /* ---------- Panels ---------- */
+  .panel {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    background: var(--paper);
+    border: 3px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 6px 0 rgb(43 45 66 / 8%);
+  }
+
+  .panel__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 0.75rem; }
+
+  .panel__title {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .panel__hint { font-size: 0.8rem; color: var(--ink-soft); }
+
+  /* ---------- House map ---------- */
+  .house {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--wood);
+    border: 3px solid var(--wood-dark);
+    border-radius: var(--radius);
+  }
+
+  .room {
+    position: relative;
+    display: grid;
+    gap: 0.3rem;
+    justify-items: center;
+    padding: 0.6rem 0.3rem 0.5rem;
+    overflow: hidden;
+    font-size: 0.75rem;
+    background: #fff8ec;
+    border: 2px solid transparent;
+    border-radius: 0.75rem;
+    transition: transform 120ms, background 300ms;
+  }
+
+  .room:active { transform: scale(0.96); }
+  .room[aria-pressed="true"] { border-color: var(--gem); background: #f1edff; }
+  .room--mine::after {
+    position: absolute;
+    top: 0.3rem;
+    left: 0.35rem;
+    content: 'Q';
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: var(--teal-dark);
+  }
+
+  .room--theirs::after {
+    position: absolute;
+    top: 0.3rem;
+    left: 0.35rem;
+    content: 'C';
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: var(--gem-dark);
+  }
+
+  .room__icon { width: 2.1rem; height: 2.1rem; color: var(--ink); }
+  .room__name { font-weight: 800; line-height: 1.1; text-align: center; }
+
+  .room__hp {
+    display: flex;
+    gap: 2px;
+    width: 100%;
+    max-width: 4.5rem;
+  }
+
+  .room__hp-cell {
+    flex: 1;
+    height: 0.45rem;
+    background: var(--line);
+    border-radius: 2px;
+  }
+
+  .room--clean .room__hp-cell--on { background: var(--green); }
+  .room--meh .room__hp-cell--on { background: var(--orange); }
+  .room--dirty .room__hp-cell--on { background: var(--red); }
+
+  /* Dust specks floating over dirty rooms, sparkles over clean ones. */
+  .room__fx { position: absolute; inset: 0; pointer-events: none; }
+
+  .room__speck {
+    position: absolute;
+    width: 0.35rem;
+    height: 0.35rem;
+    background: #a79c8a;
+    border-radius: 50%;
+    opacity: 0.7;
+    animation: drift 3s ease-in-out infinite;
+  }
+
+  .room__sparkle {
+    position: absolute;
+    width: 0.6rem;
+    height: 0.6rem;
+    background: var(--gold);
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    animation: twinkle 1.8s ease-in-out infinite;
+  }
+
+  @keyframes drift { 50% { transform: translate(0.3rem, -0.4rem); opacity: 0.35; } }
+  @keyframes twinkle { 50% { transform: scale(0.4) rotate(45deg); opacity: 0.3; } }
+
+  .room__alert {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.3rem;
+    display: grid;
+    place-items: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--red);
+    border-radius: 50%;
+    animation: bounce 900ms ease-in-out infinite;
+  }
+
+  @keyframes bounce { 50% { transform: translateY(-3px); } }
+
+  .room--shine { animation: shine 600ms; }
+  @keyframes shine { 40% { background: #fff3b0; transform: scale(1.05); } }
+
+  /* ---------- Weekly chest ---------- */
+  .chest {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    align-items: center;
+  }
+
+  .chest__art { width: 4rem; height: 4rem; }
+  .chest__lid { transform-origin: 10% 55%; transition: transform 500ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+  .chest--open .chest__lid { transform: rotate(-28deg) translateY(-2px); }
+  .chest__glow { opacity: 0; transition: opacity 400ms; }
+  .chest--open .chest__glow { opacity: 1; }
+  .chest--ready .chest__art { animation: wiggle 1.2s ease-in-out infinite; }
+  @keyframes wiggle { 10%, 30% { transform: rotate(-6deg); } 20%, 40% { transform: rotate(6deg); } 50% { transform: rotate(0); } }
+
+  .chest__body { display: grid; gap: 0.35rem; }
+  .chest__label { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; }
+  .chest__reward { font-size: 0.8rem; color: var(--ink-soft); }
+
+  .bar {
+    position: relative;
+    height: 1.1rem;
+    overflow: hidden;
+    background: var(--line);
+    border-radius: 999px;
+    box-shadow: inset 0 2px 0 rgb(43 45 66 / 10%);
+  }
+
+  .bar__fill {
+    height: 100%;
+    background: linear-gradient(var(--gold), var(--gold-dark));
+    border-radius: inherit;
+    transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .bar__text {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  /* ---------- Quest log ---------- */
+  .daily-stars { display: flex; gap: 0.2rem; }
+  .daily-stars svg { width: 1.35rem; height: 1.35rem; }
+
+  .quest-log { display: grid; gap: 0.75rem; padding: 0; list-style: none; }
+
+  .quest {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
+    padding: 0.8rem;
+    background: #fff;
+    border: 3px solid var(--line);
+    border-radius: var(--radius);
+    transition: transform 250ms, opacity 250ms;
+  }
+
+  .quest--signal { border-color: var(--red); background: #fff5f5; }
+  .quest--leaving { opacity: 0; transform: scale(0.9) rotate(-2deg); }
+  .quest--hidden-by-filter { display: none; }
+
+  .quest__bang {
+    position: absolute;
+    top: -0.75rem;
+    right: 0.75rem;
+    padding: 0.1rem 0.55rem;
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--red);
+    border-radius: 999px;
+    box-shadow: 0 3px 0 var(--red-dark);
+  }
+
+  .quest__icon {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    background: #fff8ec;
+    border: 2px solid var(--line);
+    border-radius: 0.8rem;
+  }
+
+  .quest__icon svg { width: 1.9rem; height: 1.9rem; }
+
+  .quest__main { display: grid; gap: 0.4rem; min-width: 0; }
+
+  .quest__room { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+  .quest__name { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; line-height: 1.15; }
+  .quest__signal { font-size: 0.8rem; color: var(--red-dark); }
+
+  .quest__meta { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.5rem 0.1rem 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    border-radius: 999px;
+  }
+
+  .chip svg { width: 1rem; height: 1rem; }
+  .chip--xp { color: var(--gem-dark); background: #ece7ff; }
+  .chip--coin { color: #8a5a00; background: #fff1c7; }
+  .chip--time { color: var(--ink-soft); background: #eef0f6; }
+  .chip--help { color: var(--teal-dark); background: #d8f5f2; }
+  .chip--bonus { color: #8a5a00; background: #fff1c7; }
+
+  .difficulty { display: inline-flex; gap: 1px; color: var(--gold-dark); font-size: 0.85rem; letter-spacing: -1px; }
+  .difficulty__off { color: var(--line-strong); }
+
+  .hp {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+  }
+
+  .hp__cells { display: flex; gap: 2px; }
+  .hp__cell { width: 0.7rem; height: 0.55rem; background: var(--line); border-radius: 2px; }
+  .hp--fresh .hp__cell--on { background: var(--green); }
+  .hp--soon .hp__cell--on { background: var(--orange); }
+  .hp--due .hp__cell--on { background: var(--red); }
+  .hp--late .hp__cell { background: #fde2e3; box-shadow: inset 0 0 0 1px var(--red); }
+  .hp--fresh .hp__label { color: var(--green); }
+  .hp--soon .hp__label { color: #b86b00; }
+  .hp--due .hp__label, .hp--late .hp__label { color: var(--red-dark); }
+
+  .quest__actions { grid-column: 1 / -1; display: flex; }
+  .quest__actions .chunky { flex: 1; }
+
+  /* ---------- Done ---------- */
+  .done-log { display: grid; gap: 0.4rem; padding: 0; list-style: none; }
+
+  .done {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    background: #eaf7ee;
+    border-radius: 0.75rem;
+  }
+
+  .done__check {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 1.6rem;
+    height: 1.6rem;
+    color: #fff;
+    background: var(--green);
+    border-radius: 50%;
+  }
+
+  .done__check svg { width: 1rem; height: 1rem; }
+  .done__text { flex: 1; min-width: 0; }
+  .done__meta { display: block; font-size: 0.72rem; color: var(--ink-soft); }
+
+  .text-button {
+    min-height: 2.75rem;
+    padding-inline: 0.6rem;
+    font-weight: 800;
+    color: var(--gem-dark);
+    border-radius: 0.5rem;
+  }
+
+  /* ---------- Flash challenge ---------- */
+  .challenge { display: grid; gap: 0.75rem; }
+  .challenge .chunky { width: 100%; min-height: 3.5rem; font-size: 1.2rem; }
+
+  .slot {
+    display: grid;
+    place-items: center;
+    min-height: 3rem;
+    padding: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    text-align: center;
+    background: #fff;
+    border: 3px dashed var(--gem);
+    border-radius: var(--radius);
+  }
+
+  .slot--rolling { color: var(--ink-soft); }
+
+  /* ---------- Alerts ---------- */
+  .alerts { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; list-style: none; }
+
+  .alert-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.75rem;
+    padding: 0.4rem 0.85rem 0.4rem 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+    background: #fff;
+    border: 2px solid var(--line);
+    border-radius: 999px;
+    box-shadow: 0 3px 0 var(--line);
+  }
+
+  .alert-button:active { transform: translateY(3px); box-shadow: none; }
+  .alert-button svg { width: 1.3rem; height: 1.3rem; color: var(--ink-soft); }
+  .alert-button[aria-pressed="true"] { color: var(--red-dark); border-color: var(--red); box-shadow: 0 3px 0 var(--red-dark); }
+  .alert-button[aria-pressed="true"] svg { color: var(--red); animation: ring 1s ease-in-out infinite; }
+  @keyframes ring { 10%, 30% { transform: rotate(14deg); } 20%, 40% { transform: rotate(-14deg); } 50% { transform: none; } }
+
+  /* ---------- Bottom nav ---------- */
+  .nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: center;
+    padding: 0.4rem 16px calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    background: var(--paper);
+    border-top: 3px solid var(--line);
+  }
+
+  .nav__list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+    max-width: 27rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nav__item {
+    display: grid;
+    place-items: center;
+    gap: 0.1rem;
+    width: 100%;
+    min-height: 3.25rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--ink-soft);
+    border-radius: 0.75rem;
+  }
+
+  .nav__item svg { width: 1.6rem; height: 1.6rem; }
+  .nav__item[aria-current="page"] { color: var(--teal-dark); background: #d8f5f2; }
+
+  /* ---------- FX layer ---------- */
+  .fx { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+
+  .fly-coin {
+    position: fixed;
+    width: 1.3rem;
+    height: 1.3rem;
+    transition: transform 650ms cubic-bezier(0.5, -0.4, 0.6, 1), opacity 650ms;
+  }
+
+  .float-text {
+    position: fixed;
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--gem);
+    text-shadow: 0 2px 0 #fff;
+    animation: float-up 1s ease-out forwards;
+  }
+
+  @keyframes float-up { to { transform: translateY(-3rem); opacity: 0; } }
+
+  .confetti {
+    position: fixed;
+    width: 0.5rem;
+    height: 0.8rem;
+    border-radius: 2px;
+    animation: confetti 1.1s ease-out forwards;
+  }
+
+  @keyframes confetti {
+    to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+  }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    right: 16px;
+    bottom: 5.25rem;
+    left: 16px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    max-width: 27rem;
+    margin-inline: auto;
+    padding: 0.35rem 0.4rem 0.35rem 1rem;
+    font-size: 0.9rem;
+    color: #fff;
+    background: var(--ink);
+    border-radius: var(--radius);
+  }
+
+  .toast .text-button { color: var(--gold); }
+
+  /* ---------- Modal (level up / chest) ---------- */
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgb(43 45 66 / 55%);
+  }
+
+  .modal__card {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: center;
+    width: min(100%, 22rem);
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+    background: var(--paper);
+    border: 3px solid var(--line);
+    border-radius: var(--radius-lg);
+    animation: pop-in 400ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+
+  @keyframes pop-in { from { transform: scale(0.6); opacity: 0; } }
+
+  .modal__badge {
+    display: grid;
+    place-items: center;
+    width: 5.5rem;
+    height: 5.5rem;
+    font-family: var(--font-display);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--gem);
+    border: 5px solid #ece7ff;
+    border-radius: 50%;
+  }
+
+  .modal__art { width: 6rem; height: 6rem; }
+  .modal__title { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+  .modal__text { font-size: 0.95rem; color: var(--ink-soft); }
+  .modal .chunky { width: 100%; }
+
+  /* ---------- Sheet ---------- */
+  .sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: grid;
+    align-items: end;
+    justify-items: center;
+    background: rgb(43 45 66 / 50%);
+  }
+
+  .sheet__panel {
+    display: grid;
+    gap: 0.9rem;
+    width: 100%;
+    max-width: 29rem;
+    padding: 1rem 16px calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    background: var(--paper);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: slide-up 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  @keyframes slide-up { from { transform: translateY(100%); } }
+
+  .sheet__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffc53d" stroke="#d9960a" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.5h-3a1.8 1.8 0 0 0 0 3.5h4" fill="none" stroke="#9a6400" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-gem" viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9z" fill="#7b5cff" stroke="#5638d6" stroke-width="1.5" stroke-linejoin="round"/><path d="M2 9h20M9 3l3 18 3-18" fill="none" stroke="#c9bcff" stroke-width="1.2"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z" fill="#ff8a00" stroke="#d9480f" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 13c1 1.5 3 2.5 3 4.5a3 3 0 0 1-6 0c0-1.5 1-2.5 3-4.5z" fill="#ffd43b"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-kitchen" viewBox="0 0 32 32"><rect x="5" y="13" width="22" height="13" rx="2" fill="#ffd8a8" stroke="#2b2d42" stroke-width="2"/><path d="M3 13h26M11 13V9a5 5 0 0 1 10 0v4" fill="none" stroke="#2b2d42" stroke-width="2" stroke-linecap="round"/><path d="M12 5c0-1 1-1 1-2M16 5c0-1 1-1 1-2M20 5c0-1 1-1 1-2" stroke="#8a8fa8" stroke-width="1.5" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="i-bath" viewBox="0 0 32 32"><path d="M4 16h24v3a7 7 0 0 1-7 7H11a7 7 0 0 1-7-7z" fill="#a5d8ff" stroke="#2b2d42" stroke-width="2" stroke-linejoin="round"/><path d="M8 16V7a3 3 0 0 1 6 0M10 26l-1 3M22 26l1 3" fill="none" stroke="#2b2d42" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="12" r="1.5" fill="#74c0fc"/><circle cx="22" cy="10" r="1" fill="#74c0fc"/></symbol>
+    <symbol id="i-bed" viewBox="0 0 32 32"><path d="M3 24V8M3 18h26v6M29 24v-6" fill="none" stroke="#2b2d42" stroke-width="2" stroke-linecap="round"/><rect x="5" y="12" width="7" height="5" rx="2" fill="#fff" stroke="#2b2d42" stroke-width="2"/><path d="M13 17v-4h12a4 4 0 0 1 4 4v1" fill="#d0bfff" stroke="#2b2d42" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sofa" viewBox="0 0 32 32"><path d="M6 15V11a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4" fill="#b2f2bb" stroke="#2b2d42" stroke-width="2"/><path d="M3 16a2 2 0 0 1 4 0v3h18v-3a2 2 0 0 1 4 0v7H3z" fill="#8ce99a" stroke="#2b2d42" stroke-width="2" stroke-linejoin="round"/><path d="M6 23v3M26 23v3" stroke="#2b2d42" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-laundry" viewBox="0 0 32 32"><rect x="5" y="3" width="22" height="26" rx="3" fill="#e9ecef" stroke="#2b2d42" stroke-width="2"/><circle cx="16" cy="18" r="6.5" fill="#a5d8ff" stroke="#2b2d42" stroke-width="2"/><path d="M11 19c2 1.5 4-1 6 0s3 1 4 0" fill="none" stroke="#1c7ed6" stroke-width="1.5"/><circle cx="10" cy="7.5" r="1.3" fill="#2b2d42"/><path d="M15 7.5h8" stroke="#2b2d42" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 32 32"><path d="M8 10h16l-1.5 17a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2z" fill="#c0eb75" stroke="#2b2d42" stroke-width="2" stroke-linejoin="round"/><path d="M5 10h22M13 10V6h6v4M13 15v9M19 15v9" fill="none" stroke="#2b2d42" stroke-width="2" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<header class="hud">
+  <div class="hud__avatar" id="hud-avatar" aria-hidden="true">
+    <span class="hud__avatar-inner">Q</span>
+    <span class="hud__level num" id="hud-level">7</span>
+  </div>
+  <div class="hud__who">
+    <p class="hud__name">Quentin</p>
+    <div class="hud__xp" role="progressbar" aria-label="Expérience du foyer" aria-valuemin="0" id="hud-xp">
+      <div class="hud__xp-fill" id="hud-xp-fill"></div>
+    </div>
+    <p class="hud__xp-text num" id="hud-xp-text"></p>
+  </div>
+  <div class="hud__stats">
+    <p class="stat" id="stat-coins"><svg aria-hidden="true"><use href="#i-coin"/></svg><span class="num" id="coins"></span><span class="visually-hidden">pièces</span></p>
+    <p class="stat" id="stat-streak"><svg aria-hidden="true"><use href="#i-flame"/></svg><span class="num">5</span><span class="visually-hidden">semaines de série</span></p>
+    <button class="sound-toggle" type="button" id="sound" aria-pressed="false" aria-label="Effets sonores">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7" id="sound-wave"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="game">
+  <p class="game__note">Maquette interactive · données d'exemple · Camille est un prénom provisoire</p>
+
+  <section class="panel" aria-labelledby="house-title">
+    <div class="panel__head">
+      <h2 class="panel__title" id="house-title">La maison</h2>
+      <p class="panel__hint">Touche une pièce pour filtrer</p>
+    </div>
+    <div class="house" id="house"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="chest-title">
+    <div class="chest" id="chest">
+      <svg class="chest__art" viewBox="0 0 64 64" aria-hidden="true">
+        <g class="chest__glow"><circle cx="32" cy="30" r="26" fill="#fff3b0"/></g>
+        <rect x="8" y="30" width="48" height="26" rx="4" fill="#c98b55" stroke="#6b3f1d" stroke-width="3"/>
+        <rect x="8" y="38" width="48" height="5" fill="#9a6232"/>
+        <rect x="28" y="34" width="8" height="10" rx="2" fill="#ffc53d" stroke="#6b3f1d" stroke-width="2"/>
+        <g class="chest__lid">
+          <path d="M8 30v-6a12 12 0 0 1 12-12h24a12 12 0 0 1 12 12v6z" fill="#d99a63" stroke="#6b3f1d" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M20 12v18M44 12v18" stroke="#9a6232" stroke-width="3"/>
+        </g>
+      </svg>
+      <div class="chest__body">
+        <h2 class="chest__label" id="chest-title">Coffre de la semaine</h2>
+        <div class="bar" role="progressbar" aria-labelledby="chest-title" aria-valuemin="0" aria-valuemax="1680" id="chest-bar">
+          <div class="bar__fill" id="chest-fill"></div>
+          <span class="bar__text num" id="chest-text"></span>
+        </div>
+        <p class="chest__reward">Ensemble, remplissez-le pour débloquer : <strong>soirée resto</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="quests-title">
+    <div class="panel__head">
+      <h1 class="panel__title" id="quests-title">Quêtes du jour</h1>
+      <div class="daily-stars" id="daily-stars" role="img"></div>
+    </div>
+    <p class="panel__hint num" id="quests-hint"></p>
+    <ul class="quest-log" id="quest-log"></ul>
+    <ul class="done-log" id="done-log" aria-label="Quêtes terminées"></ul>
+  </section>
+
+  <section class="panel challenge" aria-labelledby="challenge-title">
+    <div class="panel__head">
+      <h2 class="panel__title" id="challenge-title">Défi éclair</h2>
+      <p class="panel__hint">J'ai 10 min</p>
+    </div>
+    <button class="chunky chunky--gem" type="button" id="roll">
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" fill="#fff"/><circle cx="8" cy="8" r="1.7" fill="#5638d6"/><circle cx="16" cy="16" r="1.7" fill="#5638d6"/><circle cx="12" cy="12" r="1.7" fill="#5638d6"/><circle cx="16" cy="8" r="1.7" fill="#5638d6"/><circle cx="8" cy="16" r="1.7" fill="#5638d6"/></svg>
+      Lancer le dé
+    </button>
+  </section>
+
+  <section class="panel" aria-labelledby="alerts-title">
+    <div class="panel__head">
+      <h2 class="panel__title" id="alerts-title">Alertes</h2>
+      <p class="panel__hint">Sonne chez la personne responsable</p>
+    </div>
+    <ul class="alerts" id="alerts"></ul>
+  </section>
+</main>
+
+<nav class="nav" aria-label="Navigation principale">
+  <ul class="nav__list">
+    <li><button class="nav__item" type="button" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M9 12l2 2 4-4"/></svg>Quêtes</button></li>
+    <li><button class="nav__item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11L12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Maison</button></li>
+    <li><button class="nav__item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16l-1.5 11h-13z"/><path d="M8 9a4 4 0 0 1 8 0"/></svg>Boutique</button></li>
+    <li><button class="nav__item" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg>Trophées</button></li>
+  </ul>
+</nav>
+
+<div class="fx" id="fx" aria-hidden="true"></div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden>
+  <span id="toast-text"></span>
+  <button class="text-button" type="button" id="toast-undo">Annuler</button>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-text">
+    <div id="modal-art"></div>
+    <h2 class="modal__title" id="modal-title"></h2>
+    <p class="modal__text" id="modal-text"></p>
+    <button class="chunky chunky--gold" type="button" id="modal-ok">Super !</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <h2 class="panel__title" id="sheet-title">Défi éclair</h2>
+    <p class="slot slot--rolling" id="slot" aria-live="polite">…</p>
+    <ul class="quest-log" id="sheet-quest"></ul>
+    <div class="sheet__actions">
+      <button class="chunky chunky--ghost" type="button" id="reroll">Relancer</button>
+      <button class="chunky chunky--ghost" type="button" id="sheet-close">Plus tard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const LEVEL_TARGET = 1852
+  const CHEST_TARGET = 1680
+  const DAILY_GOAL = 5
+  const DIFFICULTY = { S: 1, M: 2, L: 3, XL: 4 }
+  const STATUS = { fresh: 'Nickel', soon: 'Bientôt', due: 'À faire', late: 'En retard' }
+
+  const rooms = {
+    kitchen: { name: 'Cuisine', icon: 'i-kitchen', owner: 'mine', hp: 0.4 },
+    bath: { name: 'Salle de bain', icon: 'i-bath', owner: 'mine', hp: 0.1 },
+    bedroom: { name: 'Chambre', icon: 'i-bed', owner: 'mine', hp: 0.7 },
+    living: { name: 'Séjour', icon: 'i-sofa', owner: 'theirs', hp: 0.6 },
+    laundry: { name: 'Buanderie', icon: 'i-laundry', owner: 'theirs', hp: 0.9 },
+    bins: { name: 'Poubelles', icon: 'i-trash', owner: 'mine', hp: 0.3 },
+  }
+
+  const state = {
+    level: 7,
+    levelXp: 1840,
+    coins: 340,
+    chestXp: 1660,
+    chestOpened: false,
+    filter: null,
+    sound: false,
+    quests: [
+      { id: 'trash', room: 'bins', name: 'Sortir les ordures', size: 'S', minutes: 5, xp: 5, signal: 'Camille a signalé : poubelle pleine (8 h 12)' },
+      { id: 'wc', room: 'bath', name: 'Nettoyer les WC', size: 'M', minutes: 10, xp: 15, status: 'late', ratio: 0, overdue: 2 },
+      { id: 'dishes', room: 'kitchen', name: 'Faire la vaisselle', size: 'M', minutes: 15, xp: 15, status: 'due', ratio: 0 },
+      { id: 'sink', room: 'kitchen', name: 'Nettoyer l\'évier', size: 'S', minutes: 5, xp: 5, status: 'due', ratio: 0.1 },
+    ],
+    done: [{ id: 'counter', room: 'kitchen', name: 'Nettoyer le plan de travail', xp: 5, time: '7 h 40' }],
+    challenges: [
+      { id: 'fridge', room: 'kitchen', name: 'Trier le frigo', size: 'S', minutes: 5, xp: 6, status: 'soon', ratio: 0.3, bonus: true },
+      { id: 'plants', room: 'living', name: 'Arroser les plantes', size: 'S', minutes: 5, xp: 5, status: 'due', ratio: 0, help: true },
+      { id: 'towels', room: 'bath', name: 'Changer les serviettes', size: 'S', minutes: 5, xp: 6, status: 'soon', ratio: 0.4, bonus: true },
+      { id: 'mirror', room: 'bath', name: 'Lavabo et miroir', size: 'M', minutes: 10, xp: 15, status: 'due', ratio: 0.1 },
+    ],
+    currentChallenge: null,
+    alerts: [
+      { id: 'trash', label: 'Poubelle pleine', on: true },
+      { id: 'recycling', label: 'Tri plein', on: false },
+      { id: 'glass', label: 'Verre plein', on: false },
+      { id: 'basket', label: 'Linge plein', on: false },
+      { id: 'machine', label: 'Machine finie', on: false },
+    ],
+    last: null,
+  }
+
+  const $ = id => document.getElementById(id)
+  const fmt = n => n.toLocaleString('fr-FR')
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
+  const icon = (id, cls = '') => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`
+
+  /* ---------- Sound (WebAudio, off by default) ---------- */
+  let audio
+  function blip(notes) {
+    if (!state.sound) return
+    try {
+      audio ??= new AudioContext()
+      notes.forEach(([freq, at, dur = 0.12]) => {
+        const osc = audio.createOscillator()
+        const gain = audio.createGain()
+        osc.type = 'triangle'
+        osc.frequency.value = freq
+        gain.gain.setValueAtTime(0.12, audio.currentTime + at)
+        gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + at + dur)
+        osc.connect(gain).connect(audio.destination)
+        osc.start(audio.currentTime + at)
+        osc.stop(audio.currentTime + at + dur)
+      })
+    } catch {}
+  }
+  const sfx = {
+    done: () => blip([[660, 0], [880, 0.08], [1320, 0.16, 0.2]]),
+    coin: () => blip([[1400, 0, 0.06], [1800, 0.05, 0.1]]),
+    level: () => blip([[523, 0], [659, 0.12], [784, 0.24], [1047, 0.36, 0.4]]),
+    tick: () => blip([[420 + Math.random() * 300, 0, 0.04]]),
+    bell: () => blip([[1200, 0, 0.3], [900, 0.15, 0.3]]),
+  }
+
+  /* ---------- Rendering ---------- */
+  function hpHtml(task) {
+    const cells = Math.round(task.ratio * 8)
+    const label = task.status === 'late' ? `En retard de ${task.overdue} j` : `${STATUS[task.status]} · ${Math.round(task.ratio * 100)} %`
+    return `<div class="hp hp--${task.status}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(task.ratio * 100)}" aria-valuetext="Propreté : ${label}">
+      <span class="hp__cells" aria-hidden="true">${Array.from({ length: 8 }, (_, i) => `<span class="hp__cell${i < cells ? ' hp__cell--on' : ''}"></span>`).join('')}</span>
+      <span class="hp__label" aria-hidden="true">${label}</span>
+    </div>`
+  }
+
+  function questHtml(task, source) {
+    const room = rooms[task.room]
+    const stars = DIFFICULTY[task.size]
+    const hidden = source === 'quest' && state.filter && state.filter !== task.room ? ' quest--hidden-by-filter' : ''
+    return `<li class="quest${task.signal ? ' quest--signal' : ''}${hidden}" data-room="${task.room}">
+      ${task.signal ? '<span class="quest__bang">Alerte !</span>' : ''}
+      <span class="quest__icon">${icon(room.icon)}</span>
+      <div class="quest__main">
+        <p class="quest__room">${room.name}</p>
+        <p class="quest__name">${task.name}</p>
+        ${task.signal ? `<p class="quest__signal">${task.signal}</p>` : hpHtml(task)}
+        <p class="quest__meta">
+          <span class="chip chip--xp">${icon('i-gem')}+${task.xp} XP</span>
+          <span class="chip chip--coin">${icon('i-coin')}+${task.xp}</span>
+          <span class="chip chip--time">${task.minutes} min</span>
+          <span class="difficulty" aria-label="Difficulté ${stars} sur 4">${'★'.repeat(stars)}<span class="difficulty__off">${'★'.repeat(4 - stars)}</span></span>
+          ${task.help ? '<span class="chip chip--help">Coup de main à Camille</span>' : ''}
+          ${task.bonus ? '<span class="chip chip--bonus">Bonus anticipation</span>' : ''}
+        </p>
+      </div>
+      <div class="quest__actions">
+        <button class="chunky" type="button" data-complete="${task.id}" data-source="${source}">${icon('i-check')} C'est fait !</button>
+      </div>
+    </li>`
+  }
+
+  function roomClass(hp) { return hp > 0.5 ? 'clean' : hp >= 0.25 ? 'meh' : 'dirty' }
+
+  function renderHouse() {
+    $('house').innerHTML = Object.entries(rooms).map(([id, room]) => {
+      const cls = roomClass(room.hp)
+      const cells = Math.round(room.hp * 5)
+      const alert = state.alerts.find(a => a.id === 'trash' && a.on) && id === 'bins'
+      let fx = ''
+      if (cls === 'dirty' || cls === 'meh') {
+        const n = cls === 'dirty' ? 5 : 2
+        fx = Array.from({ length: n }, (_, i) => `<span class="room__speck" style="left:${12 + i * 17}%;top:${18 + (i % 2) * 30}%;animation-delay:${i * 0.4}s"></span>`).join('')
+      }
+      else if (room.hp >= 0.85) {
+        fx = '<span class="room__sparkle" style="left:18%;top:20%"></span><span class="room__sparkle" style="right:16%;top:40%;animation-delay:.6s"></span>'
+      }
+      const label = `${room.name}, propreté ${Math.round(room.hp * 100)} %, ${room.owner === 'mine' ? 'ta pièce' : 'pièce de Camille'}`
+      return `<button class="room room--${cls} room--${room.owner}" type="button" data-room="${id}" aria-pressed="${state.filter === id}" aria-label="${label}" id="room-${id}">
+        <span class="room__fx">${fx}</span>
+        ${alert ? '<span class="room__alert">!</span>' : ''}
+        ${icon(room.icon, 'room__icon')}
+        <span class="room__name">${room.name}</span>
+        <span class="room__hp">${Array.from({ length: 5 }, (_, i) => `<span class="room__hp-cell${i < cells ? ' room__hp-cell--on' : ''}"></span>`).join('')}</span>
+      </button>`
+    }).join('')
+  }
+
+  function renderHud() {
+    const ratio = state.levelXp / LEVEL_TARGET
+    $('hud-level').textContent = state.level
+    $('hud-avatar').style.setProperty('--xp', ratio)
+    $('hud-xp-fill').style.width = `${Math.min(100, ratio * 100)}%`
+    $('hud-xp').setAttribute('aria-valuemax', LEVEL_TARGET)
+    $('hud-xp').setAttribute('aria-valuenow', state.levelXp)
+    $('hud-xp').setAttribute('aria-valuetext', `Niveau ${state.level}, ${state.levelXp} sur ${LEVEL_TARGET} XP`)
+    $('hud-xp-text').textContent = `Niv. ${state.level} · ${fmt(state.levelXp)} / ${fmt(LEVEL_TARGET)} XP`
+    $('coins').textContent = fmt(state.coins)
+  }
+
+  function renderChest() {
+    const ratio = Math.min(1, state.chestXp / CHEST_TARGET)
+    $('chest-fill').style.width = `${ratio * 100}%`
+    $('chest-text').textContent = `${fmt(state.chestXp)} / ${fmt(CHEST_TARGET)} XP`
+    $('chest-bar').setAttribute('aria-valuenow', state.chestXp)
+    $('chest').classList.toggle('chest--ready', !state.chestOpened && ratio > 0.97)
+    $('chest').classList.toggle('chest--open', state.chestOpened)
+  }
+
+  function renderQuests() {
+    $('quest-log').innerHTML = state.quests.map(t => questHtml(t, 'quest')).join('')
+      || '<li class="panel__hint">Toutes tes quêtes sont faites. Bravo !</li>'
+    $('done-log').innerHTML = state.done.map(t => `<li class="done">
+      <span class="done__check">${icon('i-check')}</span>
+      <span class="done__text">${t.name}<span class="done__meta num">${t.time} · +${t.xp} XP</span></span>
+      ${state.last && state.last.done === t ? '<button class="text-button" type="button" data-undo>Annuler</button>' : ''}
+    </li>`).join('')
+    const doneCount = state.done.length
+    $('daily-stars').innerHTML = Array.from({ length: DAILY_GOAL }, (_, i) =>
+      `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star" fill="${i < doneCount ? '#ffc53d' : '#e4e7f0'}" stroke="${i < doneCount ? '#d9960a' : '#c5cadb'}"/></svg>`).join('')
+    $('daily-stars').setAttribute('aria-label', `${Math.min(doneCount, DAILY_GOAL)} quêtes sur ${DAILY_GOAL} faites aujourd'hui`)
+    const filterName = state.filter ? ` · filtre : ${rooms[state.filter].name}` : ''
+    $('quests-hint').textContent = `${state.quests.length} à faire · environ ${state.quests.reduce((s, t) => s + t.minutes, 0)} min${filterName}`
+  }
+
+  function renderAlerts() {
+    $('alerts').innerHTML = state.alerts.map(a => `<li><button class="alert-button" type="button" aria-pressed="${a.on}" data-alert="${a.id}">${icon('i-bell')}${a.label}</button></li>`).join('')
+  }
+
+  function renderAll() { renderHud(); renderHouse(); renderChest(); renderQuests(); renderAlerts() }
+
+  /* ---------- FX ---------- */
+  function bump(id) {
+    const el = $(id)
+    el.classList.remove('stat--bump')
+    void el.offsetWidth
+    el.classList.add('stat--bump')
+  }
+
+  function floatText(x, y, text) {
+    const el = document.createElement('span')
+    el.className = 'float-text num'
+    el.textContent = text
+    el.style.left = `${x}px`
+    el.style.top = `${y}px`
+    $('fx').appendChild(el)
+    el.addEventListener('animationend', () => el.remove())
+  }
+
+  function confetti(x, y, count = 18) {
+    if (reducedMotion) return
+    const colors = ['#ffc53d', '#7b5cff', '#17a398', '#e5484d', '#74c0fc']
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('span')
+      el.className = 'confetti'
+      el.style.left = `${x}px`
+      el.style.top = `${y}px`
+      el.style.background = colors[i % colors.length]
+      el.style.setProperty('--dx', `${(Math.random() - 0.5) * 220}px`)
+      el.style.setProperty('--dy', `${-60 - Math.random() * 140}px`)
+      el.style.setProperty('--rot', `${Math.random() * 720}deg`)
+      $('fx').appendChild(el)
+      el.addEventListener('animationend', () => el.remove())
+    }
+  }
+
+  function flyCoins(from, count, onArrive) {
+    const target = $('stat-coins').getBoundingClientRect()
+    if (reducedMotion) { onArrive(); return }
+    for (let i = 0; i < count; i++) {
+      const coin = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      coin.setAttribute('class', 'fly-coin')
+      coin.innerHTML = '<use href="#i-coin"/>'
+      coin.style.left = `${from.x + (Math.random() - 0.5) * 40}px`
+      coin.style.top = `${from.y}px`
+      $('fx').appendChild(coin)
+      setTimeout(() => {
+        const dx = target.left + 8 - parseFloat(coin.style.left)
+        const dy = target.top + 4 - from.y
+        coin.style.transform = `translate(${dx}px, ${dy}px) scale(0.8)`
+      }, 30 + i * 70)
+      setTimeout(() => { coin.remove(); sfx.coin(); if (i === count - 1) onArrive() }, 700 + i * 70)
+    }
+  }
+
+  function animateNumber(key, to, render) {
+    const from = state[key]
+    const steps = reducedMotion ? 1 : 12
+    let step = 0
+    const tick = () => {
+      step++
+      state[key] = Math.round(from + (to - from) * (step / steps))
+      render()
+      if (step < steps) requestAnimationFrame(tick)
+    }
+    tick()
+  }
+
+  /* ---------- Toast & modal ---------- */
+  let toastTimer
+  function toast(text, undoable = false) {
+    $('toast-text').textContent = text
+    $('toast-undo').hidden = !undoable
+    $('toast').hidden = false
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => { $('toast').hidden = true }, 5000)
+  }
+
+  const modalQueue = []
+  let modalReturnFocus
+  function showModal(modal) {
+    modalQueue.push(modal)
+    if (modalQueue.length === 1) openNextModal()
+  }
+
+  function openNextModal() {
+    const m = modalQueue[0]
+    if (!m) { modalReturnFocus?.focus(); return }
+    modalReturnFocus ??= document.activeElement
+    $('modal-art').innerHTML = m.art
+    $('modal-title').textContent = m.title
+    $('modal-text').textContent = m.text
+    $('modal').hidden = false
+    $('modal-ok').focus()
+    m.onOpen?.()
+  }
+
+  function closeModal() {
+    $('modal').hidden = true
+    modalQueue.shift()
+    if (modalQueue.length) openNextModal()
+    else { modalReturnFocus?.focus(); modalReturnFocus = null }
+  }
+
+  /* ---------- Game actions ---------- */
+  function complete(task, button, source) {
+    const rect = button.getBoundingClientRect()
+    const origin = { x: rect.left + rect.width / 2, y: rect.top }
+    try { navigator.vibrate?.([20, 40, 20]) } catch {}
+    sfx.done()
+    confetti(origin.x, origin.y)
+    floatText(origin.x - 30, origin.y - 10, `+${task.xp} XP`)
+
+    const item = button.closest('.quest')
+    item.classList.add('quest--leaving')
+
+    const previous = { level: state.level, levelXp: state.levelXp, chestXp: state.chestXp, chestOpened: state.chestOpened, roomHp: rooms[task.room].hp }
+
+    setTimeout(() => {
+      if (source === 'quest') state.quests = state.quests.filter(t => t !== task)
+      else state.challenges = state.challenges.filter(t => t !== task)
+      if (task.signal) state.alerts.find(a => a.id === 'trash').on = false
+
+      const done = { ...task, time: 'à l\'instant' }
+      state.done.unshift(done)
+      state.last = { task, done, source, previous }
+
+      rooms[task.room].hp = Math.min(1, rooms[task.room].hp + (task.size === 'S' ? 0.15 : 0.3))
+
+      // Level
+      let levelUp = false
+      state.levelXp += task.xp
+      if (state.levelXp >= LEVEL_TARGET) {
+        state.level++
+        state.levelXp -= LEVEL_TARGET
+        levelUp = true
+      }
+
+      // Chest
+      const chestBefore = state.chestXp
+      state.chestXp += task.xp
+      const chestOpens = !state.chestOpened && chestBefore < CHEST_TARGET && state.chestXp >= CHEST_TARGET
+
+      renderHouse(); renderChest(); renderQuests(); renderAlerts(); renderHud()
+      if (source === 'challenge') closeSheet(false)
+      $(`room-${task.room}`)?.classList.add('room--shine')
+
+      flyCoins(origin, Math.min(6, Math.ceil(task.xp / 3)), () => {
+        animateNumber('coins', state.coins + task.xp, renderHud)
+        bump('stat-coins')
+      })
+
+      toast(`${task.name} : +${task.xp} XP, +${task.xp} pièces`, true)
+
+      if (levelUp) {
+        showModal({
+          art: `<div class="modal__badge num">${state.level}</div>`,
+          title: 'Niveau supérieur !',
+          text: `L'appartement passe au niveau ${state.level}. Prochain palier : un nouveau badge dans la salle des trophées.`,
+          onOpen: () => { sfx.level(); confetti(innerWidth / 2, innerHeight / 2, 40) },
+        })
+      }
+      if (chestOpens) {
+        state.chestOpened = true
+        setTimeout(renderChest, 300)
+        showModal({
+          art: `<svg class="modal__art" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="30" r="28" fill="#fff3b0"/><rect x="8" y="30" width="48" height="26" rx="4" fill="#c98b55" stroke="#6b3f1d" stroke-width="3"/><path d="M8 30l4-14h40l4 14z" fill="#d99a63" stroke="#6b3f1d" stroke-width="3" stroke-linejoin="round"/>${icon('i-coin').replace('<svg', '<svg x="20" y="18" width="12" height="12"')}${icon('i-gem').replace('<svg', '<svg x="32" y="14" width="14" height="14"')}</svg>`,
+          title: 'Coffre ouvert !',
+          text: 'Vous avez rempli la jauge de la semaine à deux. Récompense débloquée : soirée resto. Série : 6 semaines.',
+          onOpen: () => { sfx.level(); confetti(innerWidth / 2, innerHeight / 2, 50) },
+        })
+      }
+    }, reducedMotion ? 0 : 250)
+  }
+
+  function undo() {
+    const last = state.last
+    if (!last) return
+    state.done = state.done.filter(t => t !== last.done)
+    if (last.source === 'quest') state.quests.push(last.task)
+    else state.challenges.unshift(last.task)
+    if (last.task.signal) state.alerts.find(a => a.id === 'trash').on = true
+    state.level = last.previous.level
+    state.levelXp = last.previous.levelXp
+    state.chestXp = last.previous.chestXp
+    state.chestOpened = last.previous.chestOpened
+    rooms[last.task.room].hp = last.previous.roomHp
+    state.coins -= last.task.xp
+    state.last = null
+    renderAll()
+    toast('Validation annulée')
+  }
+
+  /* ---------- Flash challenge (dice) ---------- */
+  let lastFocusSheet
+  function openSheet() {
+    lastFocusSheet = document.activeElement
+    $('sheet').hidden = false
+    roll()
+  }
+
+  function closeSheet(restoreFocus = true) {
+    $('sheet').hidden = true
+    if (restoreFocus) lastFocusSheet?.focus()
+  }
+
+  function roll() {
+    const pool = state.challenges
+    $('sheet-quest').innerHTML = ''
+    $('reroll').disabled = true
+    if (!pool.length) {
+      $('slot').textContent = 'Rien d\'urgent : la maison brille !'
+      $('slot').classList.remove('slot--rolling')
+      $('reroll').disabled = false
+      $('reroll').focus()
+      return
+    }
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    let spins = reducedMotion ? 0 : 12
+    $('slot').classList.add('slot--rolling')
+    const spin = () => {
+      if (spins-- > 0) {
+        $('slot').textContent = pool[spins % pool.length].name
+        sfx.tick()
+        setTimeout(spin, 60 + (12 - spins) * 12)
+        return
+      }
+      state.currentChallenge = pick
+      $('slot').classList.remove('slot--rolling')
+      $('slot').textContent = `Défi : ${pick.name}`
+      $('sheet-quest').innerHTML = questHtml(pick, 'challenge')
+      $('reroll').disabled = false
+      $('sheet-quest').querySelector('button')?.focus()
+    }
+    spin()
+  }
+
+  /* ---------- Events ---------- */
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('button')
+    if (!button) return
+
+    if (button.dataset.complete) {
+      const source = button.dataset.source
+      const list = source === 'quest' ? state.quests : state.challenges
+      const task = list.find(t => t.id === button.dataset.complete)
+      if (task) complete(task, button, source)
+    }
+    else if (button.dataset.room) {
+      state.filter = state.filter === button.dataset.room ? null : button.dataset.room
+      renderHouse(); renderQuests()
+      $(`room-${button.dataset.room}`)?.focus()
+    }
+    else if (button.dataset.alert) {
+      const alert = state.alerts.find(a => a.id === button.dataset.alert)
+      alert.on = !alert.on
+      if (alert.on) sfx.bell()
+      renderAlerts(); renderHouse()
+      toast(alert.on ? `${alert.label} : Camille reçoit une notification` : `Alerte « ${alert.label} » retirée`)
+      document.querySelector(`[data-alert="${alert.id}"]`)?.focus()
+    }
+    else if (button.hasAttribute('data-undo') || button.id === 'toast-undo') undo()
+    else if (button.id === 'roll') openSheet()
+    else if (button.id === 'reroll') roll()
+    else if (button.id === 'sheet-close') closeSheet()
+    else if (button.id === 'modal-ok') closeModal()
+    else if (button.id === 'sound') {
+      state.sound = !state.sound
+      button.setAttribute('aria-pressed', state.sound)
+      $('sound-wave').style.opacity = state.sound ? 1 : 0.25
+      sfx.coin()
+    }
+  })
+
+  $('sheet').addEventListener('click', (event) => { if (event.target === $('sheet')) closeSheet() })
+
+  function trapFocus(container, event) {
+    const focusables = [...container.querySelectorAll('button:not([disabled])')]
+    if (!focusables.length) return
+    const first = focusables[0]
+    const last = focusables.at(-1)
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+  }
+
+  document.addEventListener('keydown', (event) => {
+    const open = !$('modal').hidden ? $('modal') : !$('sheet').hidden ? $('sheet') : null
+    if (!open) return
+    if (event.key === 'Escape') open === $('modal') ? closeModal() : closeSheet()
+    if (event.key === 'Tab') trapFocus(open, event)
+  })
+
+  $('sound-wave').style.opacity = 0.25
+  renderAll()
+</script>
+</body>
+</html>

@@ -50,6 +50,7 @@ L'app répond à deux problèmes distincts :
 
 - Un membre **crée le foyer**, puis **invite** le second (lien / code d'invitation).
 - Le foyer définit ses **catégories** et ses **tâches** (un catalogue standard est proposé à la création, cf. §10).
+- À la création, on indique pour chaque pièce son **état actuel** (propre / moyen / sale) : il initialise la fraîcheur des tâches, pour ne pas démarrer avec tout « À faire ».
 - Chaque **catégorie est attribuée à un membre**. Les quêtes du jour d'un membre proviennent de ses catégories.
 - **N'importe quel membre peut valider n'importe quelle tâche** : les points vont à celui qui l'a faite, et la validation est marquée « 🤝 Coup de main » si ce n'est pas sa catégorie.
 
@@ -182,9 +183,6 @@ Proposé à la création du foyer ; chaque tâche peut être désactivée ou mod
 | | Nettoyer le frigo | Périodique | 30 j | L | 30 min |
 | | Nettoyer le four | Périodique | 60 j | XL | 60 min |
 | | Préparer un repas maison *(désactivée par défaut)* | Quota | 4 / sem | L | 40 min |
-| **Sols** | Passer le balai (pièces de vie) | Périodique | 1 j | M | 10 min |
-| | Aspirateur complet | Périodique | 7 j | L | 30 min |
-| | Serpillière | Périodique | 7 j | L | 20 min |
 | **Salle de bain & WC** | Nettoyer les WC | Périodique | 7 j | M | 10 min |
 | | Lavabo et miroir | Périodique | 7 j | M | 10 min |
 | | Douche / baignoire | Périodique | 7 j | M | 15 min |
@@ -198,7 +196,10 @@ Proposé à la création du foyer ; chaque tâche peut être désactivée ou mod
 | **Poubelles** | Sortir les ordures ménagères | Sur signal « Poubelle pleine » | max 4 j | S | 5 min |
 | | Sortir le tri / recyclage | Sur signal « Tri plein » | max 7 j | S | 5 min |
 | | Déposer le verre | Sur signal « Verre plein » | max 30 j | S | 10 min |
-| **Séjour & entretien** | Ranger le séjour | Périodique | 2 j | M | 10 min |
+| **Séjour & sols** | Ranger le séjour | Périodique | 2 j | M | 10 min |
+| | Passer le balai (pièces de vie) | Périodique | 1 j | M | 10 min |
+| | Aspirateur complet | Périodique | 7 j | L | 30 min |
+| | Serpillière | Périodique | 7 j | L | 20 min |
 | | Dépoussiérer | Périodique | 7 j | M | 15 min |
 | | Arroser les plantes | Périodique | 3 j | S | 5 min |
 | | Laver les vitres | Périodique | 30 j | XL | 60 min |
@@ -213,7 +214,7 @@ Répartition équilibrée proposée (à attribuer entre vous) :
 | Lot | Catégories | Charge estimée |
 |---|---|---|
 | **Lot A** | Cuisine, Salle de bain & WC, Chambre, Poubelles | ≈ 38 min / jour |
-| **Lot B** | Sols, Linge, Séjour & entretien | ≈ 37 min / jour |
+| **Lot B** | Séjour & sols, Linge | ≈ 37 min / jour |
 
 > L'app affichera la **charge théorique** de chaque membre (issue du catalogue) face à son **budget quotidien**. Si la charge dépasse durablement le budget, les tâches glisseront vers le rouge : c'est le signal pour rééquilibrer ou alléger les fréquences.
 
@@ -239,10 +240,15 @@ Règles :
 
 ## 12. Direction visuelle
 
-- **Jeu de gestion minimaliste** : chaque catégorie est une **carte** avec sa jauge de santé ; l'écran principal donne une vue d'ensemble du foyer.
-- Palette sobre, formes simples, typographie lisible.
-- **Micro-feedback de validation** (animation « +15 XP », vibration via `navigator.vibrate`) — c'est un levier de motivation majeur.
-- Mode clair / sombre.
+**Jeu mobile « cosy » et familier** (maquette validée : [`docs/mockups/quetes.html`](./docs/mockups/quetes.html), détails techniques : ARCHITECTURE §10).
+
+- **Chaque catégorie est une pièce** du plan de la maison, avec son illustration, sa barre de vie, de la poussière quand elle est sale et des étincelles quand elle est propre. Toucher une pièce filtre les quêtes.
+- **HUD** façon jeu mobile : niveau du foyer, pièces, série.
+- **Coffre de la semaine** pour la jauge commune ; il s'ouvre quand l'objectif est atteint.
+- **Quêtes** avec difficulté en étoiles, récompenses visibles et gros bouton « C'est fait ! ».
+- **Défi éclair** (« J'ai 10 min ») tiré au dé.
+- **Célébrations** : confettis, pièces qui volent jusqu'au compteur, « +XP », fenêtres « Niveau supérieur ! » et « Coffre ouvert ! », vibration, sons optionnels (coupés par défaut).
+- Thème de jour pour le MVP ; thème nuit plus tard.
 
 ---
 
