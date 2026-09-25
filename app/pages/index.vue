@@ -51,6 +51,7 @@ const selectedRoomName = computed(() => selectedCategoryId.value ? game.categori
 
 <template>
   <div class="quests-page">
+    <GameInstallPanel />
     <GamePanel
       title="La maison"
       hint="Touche une pièce pour filtrer"
