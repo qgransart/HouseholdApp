@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@vite-pwa/nuxt'],
+  modules: ['@nuxt/eslint', '@vite-pwa/nuxt', 'nuxt-auth-utils'],
 
   // Private PWA: no SEO need, and a client-only app keeps offline caching simple (ARCHITECTURE D7).
   ssr: false,
@@ -25,6 +25,43 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/styles/main.scss'],
+
+  // Secrets come from environment variables only (repository is public, ARCHITECTURE §9).
+  runtimeConfig: {
+    /** NUXT_DATABASE_URL */
+    databaseUrl: '',
+    /** NUXT_ALLOWED_EMAILS: comma-separated Google accounts of the household. */
+    allowedEmails: '',
+    session: {
+      // Long-lived: the app is private and must keep working offline between visits.
+      maxAge: 60 * 60 * 24 * 90,
+    },
+  },
+
+  routeRules: {
+    '/**': {
+      headers: {
+        'Content-Security-Policy': [
+          'default-src \'self\'',
+          // Nuxt inlines its runtime config in the SPA shell.
+          'script-src \'self\' \'unsafe-inline\'',
+          'style-src \'self\' \'unsafe-inline\'',
+          'img-src \'self\' data: https://*.googleusercontent.com',
+          'font-src \'self\'',
+          'connect-src \'self\'',
+          'worker-src \'self\'',
+          'manifest-src \'self\'',
+          'frame-ancestors \'none\'',
+          'base-uri \'self\'',
+          'form-action \'self\'',
+        ].join('; '),
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+      },
+    },
+  },
   compatibilityDate: '2026-09-24',
 
   nitro: {

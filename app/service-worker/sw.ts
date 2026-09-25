@@ -10,7 +10,8 @@ cleanupOutdatedCaches()
 
 // SPA: every navigation is served by the precached shell, the client router takes over.
 // API calls (lot 4+) are never cached here: they go to the network, data lives in IndexedDB.
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/'), { denylist: [/^\/api\//] }))
+// Server routes (API, OAuth callback) must always reach the network.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('/'), { denylist: [/^\/api\//, /^\/auth\//] }))
 
 // Updates wait for the player's consent (see PwaUpdatePrompt), never interrupting a game action.
 self.addEventListener('message', (event) => {
