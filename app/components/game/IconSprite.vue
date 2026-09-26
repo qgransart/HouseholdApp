@@ -289,6 +289,98 @@
           stroke-linecap="round"
         />
       </symbol>
+      <symbol
+        id="icon-heart"
+        viewBox="0 0 24 24"
+      ><path
+        d="M12 20s-7.5-4.6-9.2-9.2C1.6 7.4 3.8 4 7.2 4c2 0 3.4 1.1 4.8 2.8C13.4 5.1 14.8 4 16.8 4c3.4 0 5.6 3.4 4.4 6.8C19.5 15.4 12 20 12 20z"
+        fill="currentColor"
+      /></symbol>
+      <symbol
+        id="icon-gear"
+        viewBox="0 0 24 24"
+      ><circle
+        cx="12"
+        cy="12"
+        r="3.2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      /><path
+        d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+      /></symbol>
+      <symbol
+        id="icon-plane"
+        viewBox="0 0 24 24"
+      ><path
+        d="M21 15.5l-8.5-4.8V4.5a1.5 1.5 0 0 0-3 0v6.2L1 15.5v2l8.5-2.5v4.2L7 21v1.5l4-1 4 1V21l-2.5-1.8v-4.2L21 17.5z"
+        fill="currentColor"
+      /></symbol>
+      <symbol
+        id="icon-medal"
+        viewBox="0 0 24 24"
+      ><path
+        d="M8 2h3l1 5-3 1zM16 2h-3l-1 5 3 1z"
+        fill="#7b5cff"
+      /><circle
+        cx="12"
+        cy="14.5"
+        r="6.5"
+        fill="#ffc53d"
+        stroke="#d9960a"
+        stroke-width="1.6"
+      /><path
+        d="M12 11l1 2.1 2.3.3-1.7 1.6.4 2.3-2-1.1-2 1.1.4-2.3-1.7-1.6 2.3-.3z"
+        fill="#fff8e0"
+      /></symbol>
+      <symbol
+        id="icon-lock"
+        viewBox="0 0 24 24"
+      ><rect
+        x="5"
+        y="10.5"
+        width="14"
+        height="10"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      /><path
+        d="M8 10.5V7.5a4 4 0 0 1 8 0v3"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      /></symbol>
+      <symbol
+        id="icon-plus"
+        viewBox="0 0 24 24"
+      ><path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        stroke-width="2.6"
+        stroke-linecap="round"
+      /></symbol>
+      <symbol
+        id="icon-copy"
+        viewBox="0 0 24 24"
+      ><rect
+        x="8"
+        y="8"
+        width="12"
+        height="12"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      /><path
+        d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      /></symbol>
     </defs>
   </svg>
 </template>

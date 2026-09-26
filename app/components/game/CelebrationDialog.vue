@@ -20,9 +20,16 @@ const content = computed(() => {
   if (!celebration) {
     return null
   }
-  return celebration.kind === 'level'
-    ? { title: 'Niveau supérieur !', text: `La maison passe au niveau ${celebration.level}. Continuez comme ça !` }
-    : { title: 'Coffre ouvert !', text: `Vous avez rempli le coffre de la semaine à deux : la récompense commune est débloquée. Série : ${celebration.streak} semaine${celebration.streak > 1 ? 's' : ''}.` }
+  switch (celebration.kind) {
+    case 'level':
+      return { title: 'Niveau supérieur !', text: `La maison passe au niveau ${celebration.level}. Continuez comme ça !` }
+    case 'chest':
+      return { title: 'Coffre ouvert !', text: `Vous avez rempli le coffre de la semaine à deux : la récompense commune est débloquée. Série : ${celebration.streak} semaine${celebration.streak > 1 ? 's' : ''}.` }
+    case 'badge':
+      return { title: `Badge : ${celebration.name}`, text: `${celebration.hint}. Retrouve tes badges dans Trophées.` }
+    default:
+      return null
+  }
 })
 
 watch(current, (celebration) => {
@@ -45,6 +52,13 @@ watch(current, (celebration) => {
         aria-hidden="true"
       >
         {{ current.level }}
+      </div>
+      <div
+        v-else-if="current.kind === 'badge'"
+        class="celebration__medal"
+        aria-hidden="true"
+      >
+        <GameIcon name="medal" />
       </div>
       <svg
         v-else
@@ -132,6 +146,17 @@ watch(current, (celebration) => {
   &__chest {
     width: 6rem;
     height: 6rem;
+  }
+
+  &__medal {
+    display: grid;
+    place-items: center;
+    width: 5.5rem;
+    height: 5.5rem;
+    font-size: 3rem;
+    background: var(--color-gold-soft);
+    border: 4px solid var(--color-gold);
+    border-radius: 50%;
   }
 
   &__title {

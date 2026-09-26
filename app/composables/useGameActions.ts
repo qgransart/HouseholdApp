@@ -1,5 +1,8 @@
 import { completeTask, DomainError, raiseSignal, undoCompletion, withdrawSignal } from '~/db/repository'
+import { setCategoryOwner, setVacationMode, snoozeTask, updateHouseholdSettings, updateMember, updateTask, type TaskChanges } from '~/db/management'
+import { createReward, honorPurchase, purchaseReward, thank } from '~/db/shop'
 import { computeLevel, type Task } from '#shared/domain'
+import type { HouseholdSettings, NotificationPrefs } from '#shared/types/entities'
 import { centerOf } from './useFx'
 
 /** Selector of the HUD element coins fly to. */
@@ -49,12 +52,7 @@ export function useGameActions() {
     }
 
     sound.play('complete')
-    try {
-      navigator.vibrate?.([20, 40, 20])
-    }
-    catch {
-      // Not supported on this device.
-    }
+    sound.vibrate([20, 40, 20])
 
     if (origin?.isConnected) {
       const point = centerOf(origin)
@@ -102,5 +100,93 @@ export function useGameActions() {
     }
   }
 
-  return { complete, undo, toggleSignal }
+  const now = () => new Date()
+
+  async function snooze(task: Task, days: number) {
+    const until = await run(() => snoozeTask(db, { taskId: task.id, days, today: game.today.value, now: now() }))
+    if (until) {
+      toast.show(`« ${task.name} » reportée de ${days} jour${days > 1 ? 's' : ''}`)
+    }
+  }
+
+  async function saveTask(task: Task, changes: TaskChanges) {
+    if (await run(() => updateTask(db, { taskId: task.id, changes, now: now() }).then(() => true))) {
+      toast.show('Tâche enregistrée')
+    }
+  }
+
+  async function changeOwner(categoryId: string, memberId: string) {
+    if (await run(() => setCategoryOwner(db, { categoryId, memberId, now: now() }).then(() => true))) {
+      toast.show(`Pièce confiée à ${game.memberName(memberId)}`)
+    }
+  }
+
+  async function setVacation(on: boolean) {
+    const householdId = game.household.value?.id
+    if (householdId && await run(() => setVacationMode(db, { householdId, on, today: game.today.value, now: now() }).then(() => true))) {
+      toast.show(on ? 'Bonnes vacances ! Le temps est suspendu.' : 'Bon retour ! Les quêtes reprennent.')
+    }
+  }
+
+  async function buy(rewardId: string) {
+    const member = game.currentMember.value
+    if (!member) {
+      return false
+    }
+    const purchase = await run(() => purchaseReward(db, { rewardId, memberId: member.id, now: now() }))
+    if (purchase) {
+      sound.play('buy')
+      sound.vibrate([20, 30, 20])
+      const target = document.querySelector(COIN_TARGET_SELECTOR)
+      if (target) {
+        fx.confetti(centerOf(target), 14)
+      }
+      toast.show(`Récompense achetée ! ${game.partner.value?.displayName ?? 'L\'autre joueur'} va l'honorer.`)
+    }
+    return Boolean(purchase)
+  }
+
+  async function honor(purchaseId: string) {
+    const member = game.currentMember.value
+    if (member && await run(() => honorPurchase(db, { purchaseId, memberId: member.id, now: now() }).then(() => true))) {
+      sound.play('coin')
+      toast.show('Récompense honorée, bravo !')
+    }
+  }
+
+  async function addReward(name: string, emoji: string, cost: number) {
+    const householdId = game.household.value?.id
+    if (householdId && await run(() => createReward(db, { householdId, name, emoji, cost, now: now() }).then(() => true))) {
+      toast.show(`Récompense « ${name.trim()} » ajoutée`)
+      return true
+    }
+    return false
+  }
+
+  async function sayThanks(completionId: string, origin?: Element | null) {
+    const member = game.currentMember.value
+    if (member && await run(() => thank(db, { completionId, memberId: member.id, now: now() }).then(() => true))) {
+      sound.play('coin')
+      if (origin?.isConnected) {
+        fx.confetti(centerOf(origin), 10)
+      }
+      toast.show(`Merci envoyé à ${game.partner.value?.displayName ?? 'l\'autre joueur'}`)
+    }
+  }
+
+  async function saveMember(changes: { dailyBudgetMin?: number, notificationPrefs?: NotificationPrefs }) {
+    const member = game.currentMember.value
+    if (member) {
+      await run(() => updateMember(db, { memberId: member.id, changes, now: now() }))
+    }
+  }
+
+  async function saveHouseholdSettings(settings: HouseholdSettings) {
+    const householdId = game.household.value?.id
+    if (householdId) {
+      await run(() => updateHouseholdSettings(db, { householdId, settings, now: now() }))
+    }
+  }
+
+  return { complete, undo, toggleSignal, snooze, saveTask, changeOwner, setVacation, buy, honor, addReward, sayThanks, saveMember, saveHouseholdSettings }
 }

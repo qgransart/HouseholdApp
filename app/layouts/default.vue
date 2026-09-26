@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Routing to the onboarding is handled by the onboarding middleware.
 const { isReady } = useHousehold()
+useBadgeCelebrations()
 </script>
 
 <template>

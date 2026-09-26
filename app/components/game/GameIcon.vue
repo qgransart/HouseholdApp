@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { RoomIcon } from '#shared/types/entities'
 
-export type GameIconName = RoomIcon | 'coin' | 'gem' | 'flame' | 'star' | 'check' | 'bell' | 'dice'
+export type GameIconName = RoomIcon | 'coin' | 'gem' | 'flame' | 'star' | 'check' | 'bell' | 'dice' | 'heart' | 'gear' | 'plane' | 'medal' | 'lock' | 'plus' | 'copy'
 
 defineProps<{ name: GameIconName }>()
 </script>

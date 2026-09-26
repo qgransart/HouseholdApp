@@ -1,6 +1,7 @@
 import { getMeta, setMeta } from '~/db/repository'
 
 const META_SOUND = 'soundEnabled'
+const META_VIBRATION = 'vibrationEnabled'
 
 type Note = [frequency: number, startAt: number, duration?: number]
 
@@ -10,6 +11,7 @@ const EFFECTS = {
   fanfare: [[523, 0], [659, 0.12], [784, 0.24], [1047, 0.36, 0.4]],
   tick: [[560, 0, 0.04]],
   bell: [[1200, 0, 0.3], [900, 0.15, 0.3]],
+  buy: [[900, 0, 0.08], [700, 0.08, 0.08], [1100, 0.16, 0.18]],
 } satisfies Record<string, Note[]>
 
 export type SoundEffect = keyof typeof EFFECTS
@@ -24,6 +26,9 @@ export const useSound = createSharedComposable(() => {
   const db = useDatabase()
   const stored = useLiveQuery(() => getMeta<boolean>(db, META_SOUND))
   const enabled = computed(() => stored.value === true)
+  const storedVibration = useLiveQuery(() => getMeta<boolean>(db, META_VIBRATION))
+  /** On by default: a short haptic feedback is part of the game feel. */
+  const vibrationEnabled = computed(() => storedVibration.value !== false)
 
   function play(effect: SoundEffect) {
     if (!enabled.value) {
@@ -53,5 +58,21 @@ export const useSound = createSharedComposable(() => {
     await setMeta(db, META_SOUND, !enabled.value)
   }
 
-  return { enabled, play, toggle }
+  function vibrate(pattern: number[]) {
+    if (!vibrationEnabled.value) {
+      return
+    }
+    try {
+      navigator.vibrate?.(pattern)
+    }
+    catch {
+      // Not supported on this device.
+    }
+  }
+
+  async function toggleVibration() {
+    await setMeta(db, META_VIBRATION, !vibrationEnabled.value)
+  }
+
+  return { enabled, play, toggle, vibrationEnabled, vibrate, toggleVibration }
 })

@@ -5,6 +5,8 @@ const LINKS = [
   { to: '/boutique', label: 'Boutique', path: 'M4 9h16l-1.5 11h-13zM8 9a4 4 0 0 1 8 0' },
   { to: '/trophees', label: 'Trophées', path: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4' },
 ] as const
+
+const { toHonor } = useGame()
 </script>
 
 <template>
@@ -38,6 +40,10 @@ const LINKS = [
             <path :d="link.path" />
           </svg>
           {{ link.label }}
+          <span
+            v-if="link.to === '/boutique' && toHonor.length"
+            class="bottom-nav__badge tabular-nums"
+          >{{ toHonor.length }}<span class="visually-hidden"> à honorer</span></span>
         </NuxtLink>
       </li>
     </ul>
@@ -66,6 +72,7 @@ const LINKS = [
   }
 
   &__link {
+    position: relative;
     display: grid;
     gap: 0.1rem;
     place-items: center;
@@ -85,6 +92,19 @@ const LINKS = [
       color: var(--color-teal-dark);
       background: var(--color-teal-soft);
     }
+  }
+
+  &__badge {
+    position: absolute;
+    top: 0.2rem;
+    right: calc(50% - 1.4rem);
+    min-width: 1.1rem;
+    padding: 0 0.25rem;
+    font-size: 0.65rem;
+    color: #fff;
+    text-align: center;
+    background: var(--color-red);
+    border-radius: var(--radius-full);
   }
 }
 </style>

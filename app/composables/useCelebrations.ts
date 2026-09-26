@@ -1,6 +1,7 @@
 export type Celebration
   = | { kind: 'level', level: number }
     | { kind: 'chest', streak: number }
+    | { kind: 'badge', name: string, hint: string }
 
 /** Queue of celebration dialogs (level up, chest opened), shown one after the other. */
 export const useCelebrations = createSharedComposable(() => {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const { currentMember, partner, canSwitchMember, switchMember } = useHousehold()
 const { level, coins, streak } = useGame()
-const sound = useSound()
 
 const initial = computed(() => currentMember.value?.displayName.charAt(0).toUpperCase() ?? '?')
 const formatNumber = (value: number) => value.toLocaleString('fr-FR')
@@ -77,29 +76,14 @@ watch(coins, (value, previous) => {
         <span class="tabular-nums">{{ streak }}</span>
         <span class="visually-hidden">semaines de série</span>
       </p>
-      <button
-        class="app-hud__sound"
-        type="button"
-        :aria-pressed="sound.enabled.value"
-        aria-label="Effets sonores"
-        @click="sound.toggle"
+      <NuxtLink
+        class="app-hud__gear"
+        to="/reglages"
+        aria-label="Réglages"
+        active-class="app-hud__gear--active"
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M4 9v6h4l5 4V5L8 9z" />
-          <path
-            d="M16.5 8.5a5 5 0 0 1 0 7"
-            :opacity="sound.enabled.value ? 1 : 0.25"
-          />
-        </svg>
-      </button>
+        <GameIcon name="gear" />
+      </NuxtLink>
     </div>
   </header>
 </template>
@@ -218,21 +202,18 @@ watch(coins, (value, previous) => {
     }
   }
 
-  &__sound {
+  &__gear {
     display: grid;
     place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1.3rem;
     color: var(--color-text-muted);
     border-radius: 50%;
 
-    &[aria-pressed='true'] {
+    &--active {
       color: var(--color-teal-dark);
-    }
-
-    svg {
-      width: 1.25rem;
-      height: 1.25rem;
+      background: var(--color-teal-soft);
     }
   }
 }

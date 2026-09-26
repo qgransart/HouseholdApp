@@ -4,6 +4,9 @@ import {
   addDays,
   buildTaskProgress,
   computeCoinBalance,
+  computeDuelScore,
+  earnedBadgeIds,
+  isOnVacation,
   computeFreshness,
   computeLevel,
   computeStreak,
@@ -17,7 +20,7 @@ import {
   toLocalDate,
   type Freshness,
   type Task,
-  type WeekOutcome,
+  type WeeklyGauge,
 } from '#shared/domain'
 import type { CategoryRow, CompletionRow, MemberRow, SignalRow } from '#shared/types/entities'
 
@@ -141,18 +144,75 @@ export const useGame = createSharedComposable(() => {
     timeZone: timeZone.value,
   }))
 
-  const streak = computed(() => {
+  /** Finished weeks since the first completion (at most a year), most recent first. */
+  const pastWeeks = computed<WeeklyGauge[]>(() => {
     const effective = completions.value.filter(isEffective)
     if (!effective.length) {
-      return weeklyGauge.value.achieved ? 1 : 0
+      return []
     }
     const firstWeek = startOfWeek(toLocalDate(effective.reduce((min, c) => c.completedAt < min ? c.completedAt : min, effective[0]!.completedAt), timeZone.value))
-    const pastWeeks: WeekOutcome[] = []
+    const weeks: WeeklyGauge[] = []
     for (let week = addDays(startOfWeek(today.value), -7), count = 0; week >= firstWeek && count < STREAK_HISTORY_WEEKS; week = addDays(week, -7), count++) {
-      pastWeeks.push(computeWeeklyGauge({ date: week, tasks: tasks.value, completions: effective, vacations: vacations.value, timeZone: timeZone.value }))
+      weeks.push(computeWeeklyGauge({ date: week, tasks: tasks.value, completions: effective, vacations: vacations.value, timeZone: timeZone.value }))
     }
-    return computeStreak(pastWeeks, weeklyGauge.value.achieved)
+    return weeks
   })
+
+  const streak = computed(() => computeStreak(pastWeeks.value, weeklyGauge.value.achieved))
+  const chestsOpened = computed(() => pastWeeks.value.filter(w => w.achieved).length + (weeklyGauge.value.achieved ? 1 : 0))
+
+  const vacationActive = computed(() => isOnVacation(today.value, vacations.value))
+  const members = computed(() => snapshot.value?.members ?? [])
+  const memberName = (id: string | null | undefined) => members.value.find(m => m.id === id)?.displayName ?? '?'
+
+  /* Social & shop */
+  const reactions = computed(() => snapshot.value?.reactions ?? [])
+  const purchases = computed(() => snapshot.value?.purchases ?? [])
+  const rewards = computed(() => (snapshot.value?.rewards ?? []).filter(r => r.active))
+  const rewardsById = computed(() => new Map((snapshot.value?.rewards ?? []).map(r => [r.id, r])))
+
+  const unlockContext = computed(() => ({ chestOpen: weeklyGauge.value.achieved, chestRatio: weeklyGauge.value.ratio, level: level.value.level, streak: streak.value }))
+
+  /** Purchases of the other member waiting for the current member to honor them. */
+  const toHonor = computed(() => purchases.value.filter(p => p.memberId !== currentMember.value?.id && !p.honoredAt))
+
+  /** Last 7 days of completions, most recent first, with their thanks. */
+  const feed = computed(() => {
+    const since = addDays(today.value, -6)
+    return completions.value
+      .filter(c => isEffective(c) && toLocalDate(c.completedAt, timeZone.value) >= since)
+      .sort((a, b) => b.completedAt.localeCompare(a.completedAt))
+      .map(c => ({
+        completion: c,
+        day: toLocalDate(c.completedAt, timeZone.value),
+        thankedBy: reactions.value.filter(r => r.completionId === c.id).map(r => r.memberId),
+      }))
+  })
+
+  const weekCompletions = computed(() => {
+    const monday = startOfWeek(today.value)
+    return completions.value.filter(c => isEffective(c) && toLocalDate(c.completedAt, timeZone.value) >= monday)
+  })
+
+  function duelScore(memberId: string) {
+    return computeDuelScore({ memberId, tasks: tasks.value, categories: categories.value, weekCompletions: weekCompletions.value, today: today.value })
+  }
+
+  function earnedBadges(memberId: string): Set<string> {
+    const taskInfo = new Map(tasks.value.map(t => [t.id, { size: t.size, roomIcon: categoriesById.value.get(t.categoryId)?.icon ?? '' }]))
+    const mine = completions.value.filter(c => isEffective(c) && c.memberId === memberId)
+    const mineIds = new Set(mine.map(c => c.id))
+    return earnedBadgeIds({
+      completions: mine,
+      taskInfo,
+      thanksReceived: reactions.value.filter(r => mineIds.has(r.completionId) && r.memberId !== memberId).length,
+      purchases: purchases.value.filter(p => p.memberId === memberId).length,
+      chestsOpened: chestsOpened.value,
+      streak: streak.value,
+      level: level.value.level,
+      timeZone: timeZone.value,
+    })
+  }
 
   return {
     today,
@@ -174,6 +234,20 @@ export const useGame = createSharedComposable(() => {
     level,
     coins,
     weeklyGauge,
+    pastWeeks,
     streak,
+    vacationActive,
+    members,
+    memberName,
+    purchases,
+    rewards,
+    rewardsById,
+    unlockContext,
+    toHonor,
+    feed,
+    weekCompletions,
+    duelScore,
+    earnedBadges,
+    household: computed(() => snapshot.value?.household ?? null),
   }
 })
