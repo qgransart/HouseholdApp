@@ -4,5 +4,5 @@
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "include": ["./**/*", "../shared/**/*", "../app/db/**/*", "../server/db/**/*", "../server/services/**/*"]
+  "include": ["./**/*", "../shared/**/*", "../app/db/**/*", "../app/sync/**/*", "../server/db/**/*", "../server/services/**/*"]
 }

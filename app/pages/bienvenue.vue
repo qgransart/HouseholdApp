@@ -2,6 +2,7 @@
 import { STANDARD_CATALOGUE } from '#shared/catalogue'
 import type { RoomState } from '#shared/domain'
 import { createHousehold } from '~/db/repository'
+import { errorMessage } from '~/composables/useSync'
 
 definePageMeta({ layout: 'bare' })
 useHead({ title: 'Bienvenue' })
@@ -14,6 +15,58 @@ const STATES: { value: RoomState, label: string }[] = [
 
 const db = useDatabase()
 const { user } = useUserSession()
+const sync = useSync()
+
+/* A device without household either creates one, joins the other's with a code, or restores its own. */
+type Mode = 'choose' | 'create' | 'join'
+const mode = ref<Mode>('choose')
+const { data: me } = await useFetch<{ membership: { householdId: string, memberId: string, displayName: string } | null }>('/api/me', { server: false, lazy: true })
+const existing = computed(() => me.value?.membership ?? null)
+
+const joinCode = ref('')
+const joinError = ref('')
+const joining = ref(false)
+
+async function adopt(householdId: string, memberId: string) {
+  await sync.adoptHousehold(householdId, memberId)
+  await navigateTo('/', { replace: true })
+}
+
+async function join() {
+  joinError.value = ''
+  const code = joinCode.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (code.length !== 6) {
+    joinError.value = 'Le code fait 6 caractères.'
+    return
+  }
+  joining.value = true
+  try {
+    const result = await $fetch<{ householdId: string, memberId: string }>('/api/invitations/accept', { method: 'POST', body: { code } })
+    await adopt(result.householdId, result.memberId)
+  }
+  catch (error) {
+    joinError.value = errorMessage(error, 'Impossible de rejoindre la maison. Vérifie ta connexion et réessaie.')
+  }
+  finally {
+    joining.value = false
+  }
+}
+
+async function restore() {
+  if (!existing.value) {
+    return
+  }
+  joining.value = true
+  try {
+    await adopt(existing.value.householdId, existing.value.memberId)
+  }
+  catch (error) {
+    joinError.value = errorMessage(error, 'La maison n\'a pas pu être téléchargée. Vérifie ta connexion et réessaie.')
+  }
+  finally {
+    joining.value = false
+  }
+}
 
 const householdName = ref('Appartement')
 const memberNames = reactive<[string, string]>([user.value?.name.split(' ')[0] ?? '', ''])
@@ -69,7 +122,113 @@ async function submit() {
 </script>
 
 <template>
+  <div
+    v-if="mode !== 'create'"
+    class="onboarding"
+  >
+    <header class="onboarding__intro">
+      <h1 class="onboarding__title">
+        Bienvenue !
+      </h1>
+      <p class="onboarding__lead">
+        Connecté avec {{ user?.email }}
+      </p>
+    </header>
+
+    <GamePanel
+      v-if="existing"
+      title="Ta maison t'attend"
+    >
+      <p class="onboarding__lead">
+        Ce compte fait déjà partie d'une maison, en tant que {{ existing.displayName }}. Retrouve-la sur ce téléphone.
+      </p>
+      <GameChunkyButton
+        variant="gold"
+        block
+        :disabled="joining"
+        @click="restore"
+      >
+        {{ joining ? 'Téléchargement…' : 'Retrouver ma maison' }}
+      </GameChunkyButton>
+    </GamePanel>
+
+    <template v-else-if="mode === 'choose'">
+      <GamePanel title="Nouvelle maison">
+        <p class="onboarding__lead">
+          Tu es le premier à installer l'app : prépare les pièces, puis invite l'autre personne.
+        </p>
+        <GameChunkyButton
+          variant="gold"
+          block
+          @click="mode = 'create'"
+        >
+          Créer notre maison
+        </GameChunkyButton>
+      </GamePanel>
+      <GamePanel title="On m'a invité">
+        <p class="onboarding__lead">
+          L'autre personne a déjà créé la maison : entre le code qu'elle t'a donné.
+        </p>
+        <GameChunkyButton
+          variant="ghost"
+          block
+          @click="mode = 'join'"
+        >
+          Rejoindre avec un code
+        </GameChunkyButton>
+      </GamePanel>
+    </template>
+
+    <GamePanel
+      v-else
+      title="Rejoindre une maison"
+    >
+      <form
+        class="join-form"
+        novalidate
+        @submit.prevent="join"
+      >
+        <label
+          class="field__label"
+          for="join-code"
+        >Code reçu (6 caractères)</label>
+        <input
+          id="join-code"
+          v-model="joinCode"
+          class="field__input join-form__code"
+          autocomplete="one-time-code"
+          maxlength="7"
+          :aria-invalid="!!joinError"
+          :aria-describedby="joinError ? 'join-error' : undefined"
+        >
+        <p
+          v-if="joinError"
+          id="join-error"
+          class="field__error"
+          role="alert"
+        >
+          {{ joinError }}
+        </p>
+        <div class="join-form__actions">
+          <GameChunkyButton
+            variant="ghost"
+            @click="mode = 'choose'"
+          >
+            Retour
+          </GameChunkyButton>
+          <GameChunkyButton
+            type="submit"
+            variant="gold"
+            :disabled="joining"
+          >
+            {{ joining ? 'Connexion…' : 'Rejoindre' }}
+          </GameChunkyButton>
+        </div>
+      </form>
+    </GamePanel>
+  </div>
   <form
+    v-else
     class="onboarding"
     novalidate
     @submit.prevent="submit"
@@ -232,6 +391,25 @@ async function submit() {
 </template>
 
 <style lang="scss" scoped>
+.join-form {
+  display: grid;
+  gap: var(--space-2);
+
+  &__code {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+
+  &__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+}
+
 .onboarding {
   display: grid;
   gap: var(--space-5);
