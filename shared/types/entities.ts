@@ -16,16 +16,42 @@ export interface SyncedRow {
 export const ROOM_ICONS = ['kitchen', 'bath', 'bed', 'sofa', 'laundry', 'trash'] as const
 export type RoomIcon = typeof ROOM_ICONS[number]
 
+export interface HouseholdSettings {
+  /** Optional weekly competition between the two members (CONCEPT §8.4). */
+  duel: boolean
+}
+
+export const DEFAULT_HOUSEHOLD_SETTINGS: HouseholdSettings = { duel: false }
+
 export interface HouseholdRow extends SyncedRow {
   name: string
   timezone: string
+  settings: HouseholdSettings
+}
+
+/** Local times are `HH:MM` in the household time zone (CONCEPT §11). */
+export interface NotificationPrefs {
+  morning: boolean
+  morningTime: string
+  evening: boolean
+  eveningTime: string
+  alerts: boolean
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  morning: true,
+  morningTime: '08:00',
+  evening: true,
+  eveningTime: '19:00',
+  alerts: true,
 }
 
 export interface MemberRow extends SyncedRow {
   displayName: string
-  /** Google account email, filled in once authentication exists (lot 4). */
+  /** Google account email: set for the creator at onboarding, for the second member by invitation. */
   email: string | null
   dailyBudgetMin: number
+  notificationPrefs: NotificationPrefs
 }
 
 export interface CategoryRow extends SyncedRow {
@@ -72,8 +98,12 @@ export interface SignalRow extends SyncedRow {
 
 export interface RewardRow extends SyncedRow {
   name: string
+  emoji: string
+  /** Coins, for personal rewards; common rewards are unlocked by playing together, never bought. */
   cost: number
   kind: 'personal' | 'common'
+  /** Common rewards only: `chest`, `level:<n>` or `streak:<n>` (see shared/domain/rewards). */
+  unlock: string | null
   active: boolean
 }
 

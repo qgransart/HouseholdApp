@@ -64,7 +64,7 @@ describe('createHousehold', () => {
 
   it('queues every created row in the outbox', async () => {
     const { snapshot } = await setup()
-    const rowCount = 1 + snapshot.members.length + snapshot.categories.length + snapshot.tasks.length
+    const rowCount = 1 + snapshot.members.length + snapshot.categories.length + snapshot.tasks.length + snapshot.rewards.length
     expect(await db.outbox.count()).toBe(rowCount)
   })
 })

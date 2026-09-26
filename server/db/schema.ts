@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
-import { bigint, boolean, date, index, integer, pgSequence, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
-import type { RoomIcon, TaskType } from '#shared/types/entities'
+import { bigint, boolean, date, index, integer, jsonb, pgSequence, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import type { HouseholdSettings, NotificationPrefs, RoomIcon, TaskType } from '#shared/types/entities'
 import type { TaskSize } from '#shared/domain/types'
 
 /**
@@ -33,6 +33,7 @@ export const households = pgTable('households', {
   rev: bigint({ mode: 'number' }).notNull().default(sql`nextval('sync_rev')`),
   name: text().notNull(),
   timezone: text().notNull(),
+  settings: jsonb().$type<HouseholdSettings>().notNull().default({ duel: false }),
 }, table => [index('households_rev_idx').on(table.rev)])
 
 export const members = pgTable('members', {
@@ -40,6 +41,7 @@ export const members = pgTable('members', {
   displayName: text().notNull(),
   email: text(),
   dailyBudgetMin: integer().notNull(),
+  notificationPrefs: jsonb().$type<NotificationPrefs>().notNull().default({ morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00', alerts: true }),
 }, table => [
   index('members_household_rev_idx').on(table.householdId, table.rev),
   // One Google account belongs to one household at most (nulls are distinct in Postgres).
@@ -93,8 +95,10 @@ export const signals = pgTable('signals', {
 export const rewards = pgTable('rewards', {
   ...syncedColumns(),
   name: text().notNull(),
+  emoji: text().notNull().default('🎁'),
   cost: integer().notNull(),
   kind: text().$type<'personal' | 'common'>().notNull(),
+  unlock: text(),
   active: boolean().notNull(),
 }, table => [index('rewards_household_rev_idx').on(table.householdId, table.rev)])
 

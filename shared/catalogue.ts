@@ -108,3 +108,26 @@ export const STANDARD_CATALOGUE: readonly CatalogueRoom[] = [
     ],
   },
 ]
+
+export interface CatalogueReward {
+  name: string
+  emoji: string
+  kind: 'personal' | 'common'
+  cost: number
+  unlock: string | null
+}
+
+/**
+ * Starting rewards. Prices are set so that a personal reward costs one to two weeks of effort:
+ * a member earns roughly 250 coins a week with the standard catalogue.
+ */
+export const STANDARD_REWARDS: readonly CatalogueReward[] = [
+  { name: 'Je choisis le film', emoji: '🎬', kind: 'personal', cost: 250, unlock: null },
+  { name: 'Joker vaisselle', emoji: '🃏', kind: 'personal', cost: 300, unlock: null },
+  { name: 'Grasse matinée garantie', emoji: '😴', kind: 'personal', cost: 400, unlock: null },
+  { name: 'Massage de 15 minutes', emoji: '💆', kind: 'personal', cost: 500, unlock: null },
+  { name: 'Petit-déjeuner au lit', emoji: '🥐', kind: 'personal', cost: 700, unlock: null },
+  { name: 'Soirée resto', emoji: '🍝', kind: 'common', cost: 0, unlock: 'chest' },
+  { name: 'Sortie ciné', emoji: '🍿', kind: 'common', cost: 0, unlock: 'level:12' },
+  { name: 'Week-end en amoureux', emoji: '🧳', kind: 'common', cost: 0, unlock: 'streak:8' },
+]

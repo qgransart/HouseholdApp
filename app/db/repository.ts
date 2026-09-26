@@ -1,54 +1,33 @@
 import { v7 as uuidv7 } from 'uuid'
-import { STANDARD_CATALOGUE, type CatalogueTask } from '#shared/catalogue'
+import { STANDARD_CATALOGUE, STANDARD_REWARDS, type CatalogueTask } from '#shared/catalogue'
 import { baselineForPeriodicTask, type RoomState } from '#shared/domain/onboarding'
 import { buildTaskProgress } from '#shared/domain/progress'
 import { computeFreshness } from '#shared/domain/freshness'
 import { computeReward } from '#shared/domain/points'
 import { toLocalDate, type LocalDate } from '#shared/domain/calendar'
 import { UNDO_WINDOW_MINUTES } from '#shared/domain/config'
-import type {
-  CategoryRow,
-  CompletionRow,
-  HouseholdRow,
-  MemberRow,
-  PurchaseRow,
-  RewardRow,
-  SignalRow,
-  SyncedRow,
-  SyncedTableName,
-  SyncedTables,
-  TaskRow,
-  VacationRow,
+import {
+  DEFAULT_HOUSEHOLD_SETTINGS,
+  DEFAULT_NOTIFICATION_PREFS,
+  type CategoryRow,
+  type CompletionRow,
+  type HouseholdRow,
+  type MemberRow,
+  type PurchaseRow,
+  type ReactionRow,
+  type RewardRow,
+  type SignalRow,
+  type SyncedTableName,
+  type SyncedTables,
+  type TaskRow,
+  type VacationRow,
 } from '#shared/types/entities'
 import { SYNCED_TABLES, type HouseholdDatabase } from './database'
+import { notDeleted, writeRows, type Draft } from './write'
 import { toDomainTask } from './mappers'
 
 export const DEFAULT_TIMEZONE = 'Europe/Paris'
 export const DEFAULT_DAILY_BUDGET_MIN = 35
-
-export type Draft<Row extends SyncedRow> = Omit<Row, 'updatedAt' | 'deletedAt'> & Partial<Pick<Row, 'deletedAt'>>
-
-/**
- * Every local write goes through here: the row is stamped and queued in the outbox
- * in the same transaction, so that nothing written offline can be forgotten by the sync.
- */
-async function writeRows<Name extends SyncedTableName>(
-  db: HouseholdDatabase,
-  table: Name,
-  drafts: Draft<SyncedTables[Name]>[],
-  now: Date,
-): Promise<SyncedTables[Name][]> {
-  const updatedAt = now.toISOString()
-  const rows = drafts.map(draft => ({ deletedAt: null, ...draft, updatedAt }) as SyncedTables[Name])
-  const target = db.table<SyncedTables[Name], string>(table)
-  await db.transaction('rw', [target, db.outbox], async () => {
-    await target.bulkPut(rows)
-    await db.outbox.bulkAdd(rows.map(row => ({ table, rowId: row.id })))
-  })
-  return rows
-}
-
-const notDeleted = <Row extends SyncedRow>(row: Row) => row.deletedAt === null
 
 /* ---------- Device settings ---------- */
 
@@ -74,6 +53,7 @@ export interface HouseholdSnapshot {
   signals: SignalRow[]
   rewards: RewardRow[]
   purchases: PurchaseRow[]
+  reactions: ReactionRow[]
   vacations: VacationRow[]
 }
 
@@ -86,7 +66,7 @@ export async function loadSnapshot(db: HouseholdDatabase, householdId: string): 
   const byHousehold = <Name extends SyncedTableName>(table: Name) =>
     db.table<SyncedTables[Name], string>(table).where('householdId').equals(householdId).filter(notDeleted).toArray()
 
-  const [members, categories, tasks, completions, signals, rewards, purchases, vacations] = await Promise.all([
+  const [members, categories, tasks, completions, signals, rewards, purchases, reactions, vacations] = await Promise.all([
     byHousehold('members'),
     byHousehold('categories'),
     byHousehold('tasks'),
@@ -94,10 +74,11 @@ export async function loadSnapshot(db: HouseholdDatabase, householdId: string): 
     byHousehold('signals'),
     byHousehold('rewards'),
     byHousehold('purchases'),
+    byHousehold('reactions'),
     byHousehold('vacations'),
   ])
   categories.sort((a, b) => a.sortOrder - b.sortOrder)
-  return { household, members, categories, tasks, completions, signals, rewards, purchases, vacations }
+  return { household, members, categories, tasks, completions, signals, rewards, purchases, reactions, vacations }
 }
 
 /* ---------- Onboarding ---------- */
@@ -134,16 +115,18 @@ export async function createHousehold(db: HouseholdDatabase, input: CreateHouseh
   })
 
   await db.transaction('rw', [...SYNCED_TABLES.map(table => db[table]), db.outbox, db.meta], async () => {
-    await writeRows(db, 'households', [{ id: householdId, householdId, name: input.name.trim(), timezone }], input.now)
+    await writeRows(db, 'households', [{ id: householdId, householdId, name: input.name.trim(), timezone, settings: { ...DEFAULT_HOUSEHOLD_SETTINGS } }], input.now)
     await writeRows(db, 'members', input.memberNames.map((displayName, i) => ({
       id: memberIds[i]!,
       householdId,
       displayName: displayName.trim(),
       email: i === 0 ? input.firstMemberEmail?.trim().toLowerCase() || null : null,
       dailyBudgetMin: DEFAULT_DAILY_BUDGET_MIN,
+      notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS },
     })), input.now)
     await writeRows(db, 'categories', categories, input.now)
     await writeRows(db, 'tasks', tasks, input.now)
+    await writeRows(db, 'rewards', STANDARD_REWARDS.map(reward => ({ id: uuidv7(), householdId, ...reward, active: true })), input.now)
     await setMeta(db, META_HOUSEHOLD_ID, householdId)
     await setMeta(db, META_CURRENT_MEMBER_ID, memberIds[0])
   })
