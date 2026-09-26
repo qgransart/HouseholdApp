@@ -3,7 +3,7 @@
 > Document de référence technique. Complète [`CONCEPT.md`](./CONCEPT.md) (le « quoi ») en décrivant le « comment ».
 > Toute décision structurante doit être ajoutée au journal des décisions (§12).
 
-**Statut :** v0.3 — serveur et authentification en place (lot 4)
+**Statut :** v0.4 — synchronisation en place (lot 5), écrans complets d'après la maquette `docs/mockups` ; notifications programmées à venir (lot 6)
 
 ---
 
@@ -166,12 +166,13 @@ Colonnes techniques de **toutes les tables synchronisées** :
 ### 6.1 Protocole
 
 ```
-PUSH   POST /api/sync/push   { mutations: [{ table, row }] }
-       → validation Zod + contrôle d'appartenance au foyer
-       → upsert idempotent par id ; LWW sur updated_at pour la configuration
-       → attribution d'un nouveau `rev` à chaque ligne écrite
-       → effets de bord serveur (ex. push immédiat lors d'un signal)
-       ← { acceptedIds, rev }
+PUSH   POST /api/sync/push   { mutations: [{ table, row }] }   (≤ 1 000 par envoi)
+       → validation Zod (shared/schemas/rows.ts) + contrôle d'appartenance au foyer
+       → premier envoi d'un foyer inconnu : il est créé s'il liste le compte qui l'envoie
+       → upsert idempotent par id ; last-write-wins sur updated_at ; une ligne ne change jamais de foyer
+       → email des membres jamais modifié par un appareil (D16)
+       → attribution d'un nouveau `rev` à chaque ligne écrite, sous verrou du foyer (D15)
+       ← { accepted }
 
 PULL   GET /api/sync/pull?since=<rev>
        ← { rows: [...], cursor: <rev max> }   (toutes les tables du foyer, rev > since)
@@ -180,6 +181,8 @@ PULL   GET /api/sync/pull?since=<rev>
 - Le curseur repose sur le **`rev` serveur**, jamais sur l'horloge des téléphones.
 - **Outbox locale** (table Dexie) : chaque écriture locale y ajoute une mutation dans la même transaction ; l'outbox est vidée après acquittement serveur.
 - Une ligne locale modifiée et encore dans l'outbox n'est **pas écrasée** par un pull (l'écriture locale sera arbitrée côté serveur au push suivant).
+- **Rejoindre / restaurer** : après une invitation acceptée, ou sur un nouveau téléphone d'un compte déjà membre (`/api/me`), l'appareil télécharge tout le foyer (`since=0`) puis l'adopte.
+- Un foyer créé avant la connexion (anciens appareils) est rattaché au compte connecté avant son premier envoi.
 
 ### 6.2 Déclencheurs
 
@@ -291,7 +294,10 @@ Référence visuelle : [`docs/mockups/quetes.html`](./docs/mockups/quetes.html) 
 | D11 | `<dialog>` natif pour modales et bottom sheets | Reka UI Dialog | Accessibilité fournie par la plateforme, zéro dépendance |
 | D12 | `baseline_on` sur les tâches, renseigné à l'onboarding (état « propre / moyen / sale » par pièce) | Tout « à faire » au premier lancement, validations fictives | Démarrage réaliste sans XP artificielle ; donne aussi une référence au délai max des tâches sur signal |
 | D13 | postgres.js + tests sur PGlite | Driver Neon serverless (HTTP) ; base de test Docker | Transactions et portabilité ; tests rapides, sans service externe, sur les vraies migrations |
-| D14 | Le foyer naît sur l'appareil (local-first) et arrive sur le serveur par la **première synchronisation** ; l'invitation lie le second compte à une ligne `members` existante | Création du foyer par une API dédiée | Un seul chemin d'écriture (la sync) ; l'écran « Rejoindre avec un code » arrive donc avec le lot 5 |
+| D14 | Le foyer naît sur l'appareil (local-first) et arrive sur le serveur par la **première synchronisation** ; l'invitation lie le second compte à une ligne `members` existante | Création du foyer par une API dédiée | Un seul chemin d'écriture (la sync) |
+| D15 | Verrou consultatif Postgres par foyer (`pg_advisory_xact_lock`) sur push **et** pull | Curseur par horodatage, pull sans verrou | Une révision attribuée mais commitée plus tard ne peut pas être sautée par un pull concurrent |
+| D16 | Les emails des membres ne sont jamais modifiés par un push : le créateur ne peut déclarer que le sien, le second arrive par invitation | Confiance dans l'appareil | Un appareil ne peut pas attribuer la seconde place à un compte arbitraire |
+| D17 | Prix des récompenses calibrés sur ~250 pièces gagnées par semaine et par joueur | Prix symboliques (100–300) | La maquette a montré qu'on pouvait s'offrir une récompense chaque semaine sans effort réel |
 
 ---
 

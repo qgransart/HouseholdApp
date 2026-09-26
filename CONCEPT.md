@@ -3,7 +3,7 @@
 > Document de référence du concept produit. Il sert de base aux décisions d'architecture (étape 2) et au développement (étape 3).
 > Toute évolution fonctionnelle doit être reportée ici.
 
-**Statut :** concept figé pour le MVP — v0.2 (règles précisées lors de l'implémentation du domaine)
+**Statut :** concept figé pour le MVP — v0.3 (boutique, badges et duel précisés d'après la maquette complète)
 **Utilisateurs cibles :** un foyer de 2 personnes (usage privé, non publié sur les stores)
 
 ---
@@ -144,19 +144,20 @@ Pendant le **mode vacances**, aucune quête n'est proposée.
 
 - L'XP cumulée des deux membres fait monter le **niveau du foyer** (« Appartement niveau 7 »).
 - Courbe de progression : passer du niveau *n* au niveau *n + 1* demande **100 × n^1,5 XP** (100, 283, 520, 800…). Les premiers niveaux arrivent en quelques jours, les suivants en plusieurs semaines.
-- Badges ponctuels (ex. « Première semaine parfaite », « 10 coups de main », « Four vaincu »).
+- **12 badges** par joueur, calculés à partir de l'historique : Première quête, Lève-tôt (avant 8 h), Bon coéquipier (10 coups de main), Grand ménage (une quête ★★★★), Semaine parfaite (un coffre ouvert), Régularité (4 semaines de série), Maître du linge (20 quêtes de linge), Sept jours d'affilée, Adoré (10 mercis reçus), Belle maison (niveau 10), Plaisir mérité (un achat), Inarrêtables (8 semaines de série). Un badge obtenu est célébré, même quand il vient d'une action de l'autre (un merci reçu).
 
 ### 8.3 Porte-monnaie individuel et boutique
 
 - Chaque membre a **ses propres pièces**.
-- **Boutique de récompenses réelles**, définie par le foyer (liste à construire ensemble). Exemples : « Je choisis le film » 100, « Petit-déjeuner au lit » 300, « Joker vaisselle » 150.
-- Acheter une récompense débite les pièces et notifie l'autre membre, qui la marque comme **honorée**.
-- Des **récompenses communes** (ex. restaurant) sont liées à la jauge / aux paliers, pas aux pièces.
+- **Boutique de récompenses réelles**, complétée par le foyer. **Prix : une à deux semaines d'effort**, un joueur gagnant environ 250 pièces par semaine avec le catalogue standard : « Je choisis le film » 250, « Joker vaisselle » 300, « Grasse matinée garantie » 400, « Massage de 15 minutes » 500, « Petit-déjeuner au lit » 700.
+- Acheter une récompense débite les pièces ; elle apparaît chez l'autre membre dans **« À honorer »** (pastille sur l'onglet Boutique), qui la marque comme **honorée**. On ne peut pas honorer sa propre récompense.
+- Des **récompenses communes** se débloquent en jouant ensemble, sans pièces : « Soirée resto » (coffre de la semaine), « Sortie ciné » (maison niveau 12), « Week-end en amoureux » (8 semaines de série).
 
 ### 8.4 Duel hebdomadaire (optionnel, désactivé par défaut)
 
 - Compare les deux membres sur la semaine.
-- Pour rester **équitable malgré des charges différentes**, le score n'est pas l'XP brute mais : **% des quêtes de ses catégories réalisées + bonus coups de main**.
+- Pour rester **équitable malgré des charges différentes**, le score n'est pas l'XP brute mais : **XP gagnée cette semaine / XP attendue de ses propres pièces à ce jour de la semaine**, les coups de main comptant 20 % de plus, plafonné à 150 %.
+- Activable par le foyer (Réglages ou Trophées).
 - Le gagnant obtient un avantage défini par le foyer (ex. choisir le restaurant).
 
 ---
@@ -275,14 +276,14 @@ Règles :
 - Quêtes du jour + « J'ai 10 min »
 - Validation 1 tap, annulation 5 min, historique partagé, « Merci »
 - XP, pièces, niveau du foyer, jauge commune, série hebdo
-- Boutique de récompenses (CRUD + achat + « honorée »)
+- Boutique de récompenses (création + achat + « honorée »), récompenses communes débloquables
+- Badges, historique de l'XP par semaine, duel optionnel
 - Notifications push (matin, soir, signaux)
 - Fonctionnement **hors ligne** avec synchronisation entre les deux téléphones
 
 ### Plus tard
 
-- Duel hebdomadaire (conçu ici, implémentation après le MVP si le besoin est confirmé)
-- Badges avancés, statistiques de répartition
+- Statistiques de répartition détaillées
 - Chaînage de tâches (ex. « Lancer une machine » → signal automatique « Machine terminée »)
 - Minuteur « Speed clean »
 - Boss hebdomadaire, avatar / maison qui évolue
