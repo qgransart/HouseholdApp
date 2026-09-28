@@ -69,7 +69,7 @@ L'adresse de l'app est nécessaire pour configurer Google : on crée donc le pro
 
 1. Sur [console.cloud.google.com](https://console.cloud.google.com), créer un projet « Quêtes de la maison ».
 2. **API et services → Écran de consentement OAuth** (ou **Google Auth Platform**) :
-   type **Externe**, nom de l'app, ton email ; laisser le statut **Test** et ajouter
+   type **Externe** (pas « Interne » : réservé aux comptes d'une organisation, il refuse les @gmail.com avec `org_internal`), nom de l'app, ton email ; laisser le statut **Test** et ajouter
    **vos deux adresses Gmail comme utilisateurs de test**. Le mode test suffit pour deux personnes :
    aucune validation Google n'est nécessaire.
 3. **Identifiants → Créer des identifiants → ID client OAuth**, type **Application Web**
@@ -124,6 +124,7 @@ propose **Retrouver ma maison**.
 |---|---|---|
 | Google affiche `redirect_uri_mismatch` | Client OAuth de type « Ordinateur de bureau », ou URI de redirection qui ne correspond pas exactement | Vérifier `https://<adresse>/auth/google` dans la console Google. Avec un domaine personnalisé, ajouter aussi la variable `NUXT_OAUTH_GOOGLE_REDIRECT_URL` |
 | Google affiche « Accès bloqué » | Le compte n'est pas utilisateur de test | L'ajouter dans l'écran de consentement OAuth |
+| Google affiche `Erreur 403 : org_internal` | Écran de consentement en mode « Interne » (réservé à une organisation Workspace) | Le passer en **Externe**, statut **Test**, avec vos deux Gmail en utilisateurs de test. Si « Externe » est grisé, créer le projet Google avec **Aucune organisation** |
 | Retour sur la page de connexion avec « non autorisé » | Email absent de `NUXT_ALLOWED_EMAILS` | Corriger la variable, puis **Redeploy** |
 | Réglages → « Database not configured » ou erreurs 503 | `NUXT_DATABASE_URL` manquante | Ajouter la variable, puis **Redeploy** |
 | Build en échec sur `[migrate] Migration failed` | Chaîne Neon incorrecte ou base inaccessible | Recopier la chaîne *pooled* depuis Neon dans `NUXT_DATABASE_URL`, puis **Redeploy** |
