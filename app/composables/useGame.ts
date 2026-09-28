@@ -1,4 +1,4 @@
-import { toDomainTask } from '~/db/mappers'
+import { toDomainTask } from '#shared/mappers'
 import { DEFAULT_TIMEZONE } from '~/db/repository'
 import {
   addDays,

@@ -3,7 +3,7 @@
 > Document de référence technique. Complète [`CONCEPT.md`](./CONCEPT.md) (le « quoi ») en décrivant le « comment ».
 > Toute décision structurante doit être ajoutée au journal des décisions (§12).
 
-**Statut :** v0.4 — synchronisation en place (lot 5), écrans complets d'après la maquette `docs/mockups` ; notifications programmées à venir (lot 6)
+**Statut :** v0.5 — synchronisation (lot 5) et notifications Web Push (lot 6) en place, écrans complets d'après la maquette `docs/mockups`
 
 ---
 
@@ -144,8 +144,9 @@ rewards             id, household_id, name, cost, kind ('personal' | 'common'), 
 purchases      ⚡   id, household_id, reward_id, member_id, cost, purchased_at, honored_at
 reactions      ⚡   id, household_id, completion_id, member_id, created_at
 vacations           id, household_id, starts_on, ends_on
-push_subscriptions  id, member_id, endpoint, p256dh, auth, created_at         -- serveur uniquement
-notification_log    id, member_id, kind, local_date, sent_at                  -- serveur uniquement
+push_subscriptions  id, household_id, member_id, endpoint (unique), p256dh, auth, created_at      -- serveur uniquement
+notification_log    id, notification_id, household_id, member_id, kind, local_date,
+                    dedupe_key (unique), sent_at                                               -- serveur uniquement
 ```
 
 Colonnes techniques de **toutes les tables synchronisées** :
@@ -199,21 +200,27 @@ Au démarrage · retour au premier plan (`visibilitychange`) · retour réseau (
 ## 7. Notifications
 
 ```
-cron-job.org ──(*/15 min, header Authorization: Bearer <CRON_SECRET>)──► /api/cron/tick
-  Pour chaque membre, dans le fuseau du foyer :
-    • Matin   : heure atteinte et non envoyée aujourd'hui           → « N quêtes aujourd'hui »
-    • Soir    : heure atteinte ET quêtes restantes                  → rappel
-    • Signaux : tâche « sur signal » dont max_delay_days est dépassé → signal automatique
-  notification_log : idempotence (1 envoi par type et par jour) + plafond 3 / jour / membre
-  Plage silencieuse 22 h – 8 h
+cron-job.org ──(*/15 min, header Authorization: Bearer <NUXT_CRON_SECRET>)──► /api/cron/tick
+  Pour chaque foyer ayant au moins un abonnement, dans le fuseau du foyer :
+    • Matin   : fenêtre [heure choisie, +2 h) ouverte, au moins une quête → « N quêtes aujourd'hui »
+    • Soir    : fenêtre [heure choisie, +2 h) ouverte, s'arrête à 22 h, quêtes restantes → rappel
+    • Alertes : signaux manuels ouverts de moins de 24 h, différés par la plage silencieuse
+  Rien pendant les vacances.
 
-Signal manuel ──► /api/sync/push ──► push immédiat à l'autre membre (hors plage silencieuse)
+Signal manuel ──► /api/sync/push ──► notifySignals() : push immédiat au responsable de la pièce
 ```
 
-- Abonnements invalides (HTTP 404 / 410 du service push) supprimés automatiquement.
-- `notificationclick` ouvre l'app sur l'écran concerné.
-- Le tick est **idempotent** : un appel en double ou en retard ne produit ni doublon ni envoi hors fenêtre.
-- Secours si cron-job.org est indisponible : workflow GitHub Actions `schedule` appelant la même route.
+Règles (logique pure : `shared/domain/notifications.ts`, orchestration : `server/services/notifications.ts`) :
+
+- **Destinataire d'une alerte** : le responsable de la pièce de la tâche, s'il n'est pas celui qui l'a signalée. Les alertes en attente d'un membre sont **regroupées** en une notification.
+- **Plage silencieuse 22 h – 8 h** : elle retient les alertes (envoyées au premier tick après 8 h). Les notifications planifiées suivent l'heure choisie par le membre (un matin à 7 h 30 est un choix), mais aucune fenêtre ne déborde sur 22 h.
+- **Signaux automatiques** (délai max dépassé) : pas de notification dédiée, ils ouvrent la notification du matin (« 🔔 Poubelle pleine · … »).
+- **Idempotence et plafond** : chaque fait annoncé a une clé (`morning:<membre>:<date>`, `signal:<membre>:<signal>`) réservée dans `notification_log` **avant** l'envoi, sous le verrou du foyer (D15) ; un tick en double ou concurrent n'envoie rien de plus. Plafond **3 notifications / jour / membre** (`count(distinct notification_id)`, une alerte groupée compte pour une).
+- **Au plus une fois** : une réservation n'est pas rejouée si le service push échoue (une notification perdue plutôt qu'un doublon).
+- **Abonnements** : un par appareil, rafraîchi à chaque démarrage après la première synchronisation (les services push peuvent faire tourner l'endpoint). Un endpoint appartient au dernier compte qui l'enregistre. Réponse 404 / 410 du service push → abonnement supprimé.
+- **Service worker** : `push` affiche la notification (`tag` : `quests` ou `signals`, qui se remplacent), `notificationclick` ramène sur l'app ouverte ou l'ouvre. Le `topic` Web Push fusionne aussi les notifications non encore livrées (téléphone hors ligne).
+- **Test** : « Tester une notification » (Réglages) passe par le serveur, donc vérifie toute la chaîne.
+- Secours possible si cron-job.org est indisponible : n'importe quel planificateur appelant la même route (le tick est idempotent).
 
 ---
 
@@ -237,7 +244,7 @@ Signal manuel ──► /api/sync/push ──► push immédiat à l'autre membr
 | Route cron | Secret comparé en temps constant ; réponse neutre sinon |
 | Entrées | Validation Zod systématique côté serveur (le client n'est jamais digne de confiance, même en usage privé) |
 | En-têtes | CSP (`default-src 'self'`, `frame-ancestors 'none'`…), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`. Limite connue : `script-src` autorise `'unsafe-inline'`, requis par la configuration inline du shell Nuxt ; à durcir avec des hashes |
-| Secrets | `NUXT_SESSION_PASSWORD`, `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET`, `NUXT_DATABASE_URL`, `NUXT_ALLOWED_EMAILS`, `VAPID_*`, `CRON_SECRET` → variables d'environnement Vercel ; `.env` ignoré par Git ; `.env.example` sans valeurs commité |
+| Secrets | `NUXT_SESSION_PASSWORD`, `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `_SECRET`, `NUXT_DATABASE_URL`, `NUXT_ALLOWED_EMAILS`, `NUXT_VAPID_PRIVATE_KEY`, `NUXT_CRON_SECRET` → variables d'environnement Vercel ; `.env` ignoré par Git ; `.env.example` sans valeurs commité |
 
 ---
 
@@ -298,6 +305,9 @@ Référence visuelle : [`docs/mockups/quetes.html`](./docs/mockups/quetes.html) 
 | D15 | Verrou consultatif Postgres par foyer (`pg_advisory_xact_lock`) sur push **et** pull | Curseur par horodatage, pull sans verrou | Une révision attribuée mais commitée plus tard ne peut pas être sautée par un pull concurrent |
 | D16 | Les emails des membres ne sont jamais modifiés par un push : le créateur ne peut déclarer que le sien, le second arrive par invitation | Confiance dans l'appareil | Un appareil ne peut pas attribuer la seconde place à un compte arbitraire |
 | D17 | Prix des récompenses calibrés sur ~250 pièces gagnées par semaine et par joueur | Prix symboliques (100–300) | La maquette a montré qu'on pouvait s'offrir une récompense chaque semaine sans effort réel |
+| D18 | Réservation de la notification (`notification_log.dedupe_key` unique) **avant** l'envoi | Journaliser après l'envoi, file de messages | Idempotence du tick sans infrastructure en plus ; au pire une notification perdue, jamais un doublon |
+| D19 | Alerte « c'est plein » envoyée pendant la requête de sync, le tick ne faisant que rattraper | Attendre le tick (jusqu'à 15 min), file de tâches | Instantané sans service supplémentaire ; un échec d'envoi ne fait pas échouer la sync |
+| D20 | `web-push` (Node) pour le chiffrement et la signature VAPID | Implémentation maison (RFC 8291 / 8292), service tiers (OneSignal…) | Bibliothèque de référence, pas de compte externe ; le chiffrement à la main serait un risque inutile |
 
 ---
 

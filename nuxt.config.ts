@@ -32,6 +32,15 @@ export default defineNuxtConfig({
     databaseUrl: '',
     /** NUXT_ALLOWED_EMAILS: comma-separated Google accounts of the household. */
     allowedEmails: '',
+    /** NUXT_VAPID_PRIVATE_KEY and NUXT_VAPID_SUBJECT (`mailto:…`): Web Push identity (lot 6). */
+    vapidPrivateKey: '',
+    vapidSubject: '',
+    /** NUXT_CRON_SECRET: expected by /api/cron/tick. */
+    cronSecret: '',
+    public: {
+      /** NUXT_PUBLIC_VAPID_PUBLIC_KEY: read at build time by the prerendered shell, redeploy after a change. */
+      vapidPublicKey: '',
+    },
     session: {
       // Long-lived: the app is private and must keep working offline between visits.
       maxAge: 60 * 60 * 24 * 90,

@@ -87,3 +87,27 @@ export function endOfWeek(date: LocalDate): LocalDate {
 export function isWithin(date: LocalDate, start: LocalDate, end: LocalDate): boolean {
   return date >= start && date <= end
 }
+
+/** Wall-clock time `HH:MM` (24 h). */
+export type LocalTime = string
+
+const timeFormatters = new Map<string, Intl.DateTimeFormat>()
+
+/** Local time of an instant in the given IANA time zone, e.g. `08:05`. */
+export function toLocalTime(instant: Date | string, timeZone: string): LocalTime {
+  let formatter = timeFormatters.get(timeZone)
+  if (!formatter) {
+    // h23: midnight is `00`, never `24` as some engines render it with `hour12: false`.
+    formatter = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    timeFormatters.set(timeZone, formatter)
+  }
+  const parts = formatter.formatToParts(typeof instant === 'string' ? new Date(instant) : instant)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? '00'
+  return `${part('hour')}:${part('minute')}`
+}
+
+/** Minutes since midnight of a `HH:MM` time. */
+export function minutesOfDay(time: LocalTime): number {
+  const [hours = 0, minutes = 0] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}

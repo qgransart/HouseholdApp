@@ -38,3 +38,20 @@ export const STREAK_JOKERS_PER_MONTH = 1
 
 /** A completion can be undone during this delay (tap mistake), then it is final (CONCEPT §9). */
 export const UNDO_WINDOW_MINUTES = 5
+
+/* Notifications (CONCEPT §11) */
+
+/** No instant alert in this range; alerts raised meanwhile wait for its end. */
+export const QUIET_HOURS = { start: '22:00', end: '08:00' } as const
+
+/** Every kind included, per member and per local day. */
+export const MAX_NOTIFICATIONS_PER_DAY = 3
+
+/**
+ * A scheduled notification is only sent within this delay after its time: a late or missed
+ * tick never sends the morning quests at noon.
+ */
+export const SCHEDULED_NOTIFICATION_WINDOW_MINUTES = 120
+
+/** A manual signal older than this is not announced any more (it is still in the quests). */
+export const SIGNAL_NOTIFICATION_MAX_AGE_HOURS = 24

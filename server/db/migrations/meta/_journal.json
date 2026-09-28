@@ -15,6 +15,13 @@
       "when": 1790429347474,
       "tag": "0001_settings_and_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790594404227,
+      "tag": "0002_notifications",
+      "breakpoints": true
     }
   ]
 }

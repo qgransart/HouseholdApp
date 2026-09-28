@@ -24,7 +24,7 @@ import {
 } from '#shared/types/entities'
 import { SYNCED_TABLES, type HouseholdDatabase } from './database'
 import { notDeleted, writeRows, type Draft } from './write'
-import { toDomainTask } from './mappers'
+import { toDomainTask } from '#shared/mappers'
 
 export const DEFAULT_TIMEZONE = 'Europe/Paris'
 export const DEFAULT_DAILY_BUDGET_MIN = 35

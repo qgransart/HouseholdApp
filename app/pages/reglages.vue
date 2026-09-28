@@ -31,25 +31,40 @@ const alerts = prefModel('alerts')
 const MORNING_TIMES = ['07:00', '07:30', '08:00', '08:30', '09:00']
 const EVENING_TIMES = ['18:00', '19:00', '20:00', '21:00']
 
-const permission = ref<NotificationPermission | 'unsupported'>('default')
-onMounted(() => {
-  permission.value = 'Notification' in window ? Notification.permission : 'unsupported'
-})
+const push = usePushNotifications()
+const permission = push.permission
+const testing = ref(false)
+onMounted(push.readPermission)
 
 async function enableNotifications() {
-  if (!('Notification' in window)) {
-    return
+  try {
+    if (await push.enable()) {
+      toast.show('Notifications activées sur ce téléphone')
+    }
+    else if (permission.value === 'granted') {
+      toast.show(push.configured
+        ? 'Notifications autorisées. Elles seront activées à la prochaine synchronisation.'
+        : 'Notifications autorisées, mais le serveur ne sait pas encore en envoyer.')
+    }
   }
-  permission.value = await Notification.requestPermission()
-  if (permission.value === 'granted') {
-    const registration = await navigator.serviceWorker?.getRegistration()
-    const body = `${game.pendingQuests.value.length} quête(s) aujourd'hui. On s'y met ?`
-    if (registration) {
-      await registration.showNotification('Quêtes de la maison', { body, icon: '/pwa-192x192.png', badge: '/pwa-192x192.png' })
-    }
-    else {
-      new Notification('Quêtes de la maison', { body, icon: '/pwa-192x192.png' })
-    }
+  catch (error) {
+    toast.show(errorMessage(error, 'L\'activation a échoué. Vérifie ta connexion et réessaie.'))
+  }
+}
+
+async function testNotification() {
+  testing.value = true
+  try {
+    // Re-registers first: a test must check the whole chain, server included.
+    await push.subscribe()
+    const sent = await push.sendTest()
+    toast.show(sent ? 'Notification envoyée : elle arrive dans quelques secondes.' : 'Aucun appareil enregistré : réactive les notifications.')
+  }
+  catch (error) {
+    toast.show(errorMessage(error, 'Le test a échoué. Vérifie ta connexion et réessaie.'))
+  }
+  finally {
+    testing.value = false
   }
 }
 
@@ -214,14 +229,15 @@ const syncLabel = computed(() => {
           hint="Quand l'autre signale « c'est plein »."
         />
         <p class="field__hint settings-list__item">
-          Jamais plus de 3 par jour, et rien entre 22 h et 8 h.
+          Jamais plus de 3 par jour. Les alertes lancées entre 22 h et 8 h attendent le matin.
         </p>
         <GameChunkyButton
-          v-if="permission === 'granted'"
+          v-if="permission === 'granted' && push.configured"
           class="settings-list__item"
           variant="ghost"
           block
-          @click="enableNotifications"
+          :disabled="testing || !loggedIn"
+          @click="testNotification"
         >
           Tester une notification
         </GameChunkyButton>
