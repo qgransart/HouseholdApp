@@ -1,0 +1,92 @@
+@use 'fonts';
+@use 'tokens';
+@use 'mixins';
+@use 'fx';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at 15% 8%, #fff 0 3rem, transparent 3.1rem),
+    radial-gradient(circle at 85% 30%, #fff 0 2rem, transparent 2.1rem),
+    linear-gradient(var(--color-sky), var(--color-sky-deep));
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+ul[role='list'],
+ol[role='list'] {
+  padding: 0;
+  list-style: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  @include mixins.display-text;
+
+  text-wrap: balance;
+}
+
+:focus-visible {
+  @include mixins.focus-ring;
+}
+
+.visually-hidden {
+  @include mixins.visually-hidden;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

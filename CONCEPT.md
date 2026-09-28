@@ -3,7 +3,7 @@
 > Document de référence du concept produit. Il sert de base aux décisions d'architecture (étape 2) et au développement (étape 3).
 > Toute évolution fonctionnelle doit être reportée ici.
 
-**Statut :** concept figé pour le MVP — v0.1
+**Statut :** concept figé pour le MVP — v0.3 (boutique, badges et duel précisés d'après la maquette complète)
 **Utilisateurs cibles :** un foyer de 2 personnes (usage privé, non publié sur les stores)
 
 ---
@@ -50,6 +50,7 @@ L'app répond à deux problèmes distincts :
 
 - Un membre **crée le foyer**, puis **invite** le second (lien / code d'invitation).
 - Le foyer définit ses **catégories** et ses **tâches** (un catalogue standard est proposé à la création, cf. §10).
+- À la création, on indique pour chaque pièce son **état actuel** (propre / moyen / sale) : il initialise la fraîcheur des tâches, pour ne pas démarrer avec tout « À faire ».
 - Chaque **catégorie est attribuée à un membre**. Les quêtes du jour d'un membre proviennent de ses catégories.
 - **N'importe quel membre peut valider n'importe quelle tâche** : les points vont à celui qui l'a faite, et la validation est marquée « 🤝 Coup de main » si ce n'est pas sa catégorie.
 
@@ -63,7 +64,7 @@ L'app répond à deux problèmes distincts :
 |---|---|---|---|
 | **Périodique** | Draps tous les 7 j | Fenêtre **glissante** : l'échéance repart de la dernière validation | Barre de fraîcheur |
 | **Quota hebdo** | Préparer 4 repas / semaine | Fenêtre **fixe** du lundi au dimanche, remise à zéro le lundi | Compteur « 2/4 cette semaine » |
-| **Sur signal** | Sortir les poubelles | Invisible tant que personne ne signale. Un membre appuie sur **« C'est plein »** → une quête apparaît chez le responsable + notification. **Délai max** optionnel : la tâche se déclenche d'elle-même si aucun signal n'a eu lieu depuis N jours (hygiène) | Bouton de signal ; quête prioritaire une fois déclenchée |
+| **Sur signal** | Sortir les poubelles | Invisible tant que personne ne signale. Un membre appuie sur **« C'est plein »** → une quête apparaît chez le responsable + notification. **Délai max** optionnel : la tâche se déclenche d'elle-même N jours après sa dernière réalisation (hygiène) ; une tâche jamais réalisée attend son premier signal manuel | Bouton de signal ; quête prioritaire une fois déclenchée |
 
 Attributs communs d'une tâche : nom, catégorie, type, **taille** (§6), durée estimée (minutes), paramètres propres au type (intervalle, quota, délai max), active / inactive.
 
@@ -81,9 +82,11 @@ Exemple : draps (intervalle 7 j) changés il y a 5 j → fraîcheur **29 %**.
 |---|---|---|---|
 | > 50 % | Propre | « Nickel » | Vert |
 | 20 – 50 % | Bientôt | « À prévoir » | Orange |
-| < 20 % | À faire | « À faire » | Rouge |
-| 0 % | En retard | « En retard de N j » | Rouge foncé |
+| < 20 % (jusqu'au jour d'échéance inclus) | À faire | « À faire » | Rouge |
+| Échéance dépassée | En retard | « En retard de N j » | Rouge foncé |
 
+- Une tâche est « À faire » le jour de son échéance et « En retard » seulement à partir du lendemain : une tâche quotidienne faite la veille s'affiche « À faire », pas « En retard ». Une tâche jamais réalisée est « À faire ».
+- Les jours sont des **jours calendaires** dans le fuseau du foyer : l'heure de validation et les changements d'heure ne décalent jamais une échéance.
 - **Aucune pénalité** en cas de retard ; seul l'affichage change.
 - La couleur n'est **jamais** la seule information : libellé + pourcentage toujours présents (WCAG 1.4.1).
 - **Reporter** : décaler une tâche de N jours.
@@ -103,7 +106,7 @@ Chaque tâche a une **taille**, qui détermine sa récompense. Une validation ra
 | **L** | 15 – 45 min | 40 |
 | **XL** | > 45 min | 80 |
 
-- **Bonus d'anticipation** : +20 % si une tâche périodique est validée avant de passer au rouge (fraîcheur ≥ 20 %).
+- **Bonus d'anticipation** : +20 % si une tâche périodique est validée pendant qu'elle est « À prévoir » (fraîcheur entre 20 et 50 %). Pas de bonus sur une tâche encore « Nickel » : cela encouragerait à refaire des tâches propres pour gagner des points.
 - Le barème est **global et ajustable** : on ne saisit jamais un nombre de points par tâche.
 
 ---
@@ -116,8 +119,14 @@ Chaque tâche a une **taille**, qui détermine sa récompense. Une validation ra
 
 1. Prendre les tâches actives des catégories du membre.
 2. Placer en tête les tâches **sur signal** déclenchées.
-3. Trier le reste par **urgence** : fraîcheur croissante (périodiques) ; retard sur le quota au prorata de la semaine (quotas).
-4. Ajouter des quêtes jusqu'à atteindre le **budget quotidien** (défaut : **35 min**, réglable par membre).
+3. Ne retenir que les tâches qui **valent la peine** (urgence ≥ 0,5) et trier par **urgence**, un score commun aux types :
+   - périodique : jours écoulés / intervalle (1 = échéance aujourd'hui, > 1 = en retard) ;
+   - quota : réalisations restantes / jours restants dans la semaine ; une seule occurrence proposée par jour.
+   - à urgence égale, la tâche **la plus fréquente** passe d'abord (la vaisselle avant le four), puis la plus courte.
+4. Ajouter des quêtes jusqu'à atteindre le **budget quotidien** (défaut : **35 min**, réglable par membre). Les tâches déjà faites aujourd'hui restent affichées comme terminées et **consomment le budget** : terminer une quête n'en fait pas apparaître une nouvelle indéfiniment.
+5. La tâche la plus urgente est **toujours proposée**, même si elle dépasse le budget restant : sinon une grosse tâche (four, vitres) ne serait jamais planifiée.
+
+Pendant le **mode vacances**, aucune quête n'est proposée.
 
 **Bouton « J'ai 10 min »** : parmi toutes les tâches du foyer, propose la plus urgente dont la durée est ≤ 10 min (une tâche de l'autre membre est présentée comme coup de main). Il est possible de passer à la suggestion suivante.
 
@@ -129,25 +138,26 @@ Chaque tâche a une **taille**, qui détermine sa récompense. Une validation ra
 
 - Objectif hebdomadaire d'XP **commun au foyer**, calculé automatiquement : **80 % de l'XP théorique de la semaine** (somme des tâches attendues d'après le catalogue actif).
 - Objectif atteint → la **récompense commune** de la semaine est débloquée et la **série** s'incrémente.
-- **Série hebdomadaire** : nombre de semaines consécutives avec jauge atteinte. **1 joker par mois** pour la préserver.
+- **Série hebdomadaire** : nombre de semaines consécutives avec jauge atteinte. **1 joker par mois** pour la préserver. La semaine en cours ne compte qu'une fois la jauge atteinte et ne casse jamais la série ; une semaine entièrement en vacances est neutre.
 
 ### 8.2 Niveau du foyer
 
 - L'XP cumulée des deux membres fait monter le **niveau du foyer** (« Appartement niveau 7 »).
-- Courbe de progression à définir (croissante, pour que les premiers niveaux arrivent vite).
-- Badges ponctuels (ex. « Première semaine parfaite », « 10 coups de main », « Four vaincu »).
+- Courbe de progression : passer du niveau *n* au niveau *n + 1* demande **100 × n^1,5 XP** (100, 283, 520, 800…). Les premiers niveaux arrivent en quelques jours, les suivants en plusieurs semaines.
+- **12 badges** par joueur, calculés à partir de l'historique : Première quête, Lève-tôt (avant 8 h), Bon coéquipier (10 coups de main), Grand ménage (une quête ★★★★), Semaine parfaite (un coffre ouvert), Régularité (4 semaines de série), Maître du linge (20 quêtes de linge), Sept jours d'affilée, Adoré (10 mercis reçus), Belle maison (niveau 10), Plaisir mérité (un achat), Inarrêtables (8 semaines de série). Un badge obtenu est célébré, même quand il vient d'une action de l'autre (un merci reçu).
 
 ### 8.3 Porte-monnaie individuel et boutique
 
 - Chaque membre a **ses propres pièces**.
-- **Boutique de récompenses réelles**, définie par le foyer (liste à construire ensemble). Exemples : « Je choisis le film » 100, « Petit-déjeuner au lit » 300, « Joker vaisselle » 150.
-- Acheter une récompense débite les pièces et notifie l'autre membre, qui la marque comme **honorée**.
-- Des **récompenses communes** (ex. restaurant) sont liées à la jauge / aux paliers, pas aux pièces.
+- **Boutique de récompenses réelles**, complétée par le foyer. **Prix : une à deux semaines d'effort**, un joueur gagnant environ 250 pièces par semaine avec le catalogue standard : « Je choisis le film » 250, « Joker vaisselle » 300, « Grasse matinée garantie » 400, « Massage de 15 minutes » 500, « Petit-déjeuner au lit » 700.
+- Acheter une récompense débite les pièces ; elle apparaît chez l'autre membre dans **« À honorer »** (pastille sur l'onglet Boutique), qui la marque comme **honorée**. On ne peut pas honorer sa propre récompense.
+- Des **récompenses communes** se débloquent en jouant ensemble, sans pièces : « Soirée resto » (coffre de la semaine), « Sortie ciné » (maison niveau 12), « Week-end en amoureux » (8 semaines de série).
 
 ### 8.4 Duel hebdomadaire (optionnel, désactivé par défaut)
 
 - Compare les deux membres sur la semaine.
-- Pour rester **équitable malgré des charges différentes**, le score n'est pas l'XP brute mais : **% des quêtes de ses catégories réalisées + bonus coups de main**.
+- Pour rester **équitable malgré des charges différentes**, le score n'est pas l'XP brute mais : **XP gagnée cette semaine / XP attendue de ses propres pièces à ce jour de la semaine**, les coups de main comptant 20 % de plus, plafonné à 150 %.
+- Activable par le foyer (Réglages ou Trophées).
 - Le gagnant obtient un avantage défini par le foyer (ex. choisir le restaurant).
 
 ---
@@ -175,9 +185,6 @@ Proposé à la création du foyer ; chaque tâche peut être désactivée ou mod
 | | Nettoyer le frigo | Périodique | 30 j | L | 30 min |
 | | Nettoyer le four | Périodique | 60 j | XL | 60 min |
 | | Préparer un repas maison *(désactivée par défaut)* | Quota | 4 / sem | L | 40 min |
-| **Sols** | Passer le balai (pièces de vie) | Périodique | 1 j | M | 10 min |
-| | Aspirateur complet | Périodique | 7 j | L | 30 min |
-| | Serpillière | Périodique | 7 j | L | 20 min |
 | **Salle de bain & WC** | Nettoyer les WC | Périodique | 7 j | M | 10 min |
 | | Lavabo et miroir | Périodique | 7 j | M | 10 min |
 | | Douche / baignoire | Périodique | 7 j | M | 15 min |
@@ -191,7 +198,10 @@ Proposé à la création du foyer ; chaque tâche peut être désactivée ou mod
 | **Poubelles** | Sortir les ordures ménagères | Sur signal « Poubelle pleine » | max 4 j | S | 5 min |
 | | Sortir le tri / recyclage | Sur signal « Tri plein » | max 7 j | S | 5 min |
 | | Déposer le verre | Sur signal « Verre plein » | max 30 j | S | 10 min |
-| **Séjour & entretien** | Ranger le séjour | Périodique | 2 j | M | 10 min |
+| **Séjour & sols** | Ranger le séjour | Périodique | 2 j | M | 10 min |
+| | Passer le balai (pièces de vie) | Périodique | 1 j | M | 10 min |
+| | Aspirateur complet | Périodique | 7 j | L | 30 min |
+| | Serpillière | Périodique | 7 j | L | 20 min |
 | | Dépoussiérer | Périodique | 7 j | M | 15 min |
 | | Arroser les plantes | Périodique | 3 j | S | 5 min |
 | | Laver les vitres | Périodique | 30 j | XL | 60 min |
@@ -206,7 +216,7 @@ Répartition équilibrée proposée (à attribuer entre vous) :
 | Lot | Catégories | Charge estimée |
 |---|---|---|
 | **Lot A** | Cuisine, Salle de bain & WC, Chambre, Poubelles | ≈ 38 min / jour |
-| **Lot B** | Sols, Linge, Séjour & entretien | ≈ 37 min / jour |
+| **Lot B** | Séjour & sols, Linge | ≈ 37 min / jour |
 
 > L'app affichera la **charge théorique** de chaque membre (issue du catalogue) face à son **budget quotidien**. Si la charge dépasse durablement le budget, les tâches glisseront vers le rouge : c'est le signal pour rééquilibrer ou alléger les fréquences.
 
@@ -232,10 +242,15 @@ Règles :
 
 ## 12. Direction visuelle
 
-- **Jeu de gestion minimaliste** : chaque catégorie est une **carte** avec sa jauge de santé ; l'écran principal donne une vue d'ensemble du foyer.
-- Palette sobre, formes simples, typographie lisible.
-- **Micro-feedback de validation** (animation « +15 XP », vibration via `navigator.vibrate`) — c'est un levier de motivation majeur.
-- Mode clair / sombre.
+**Jeu mobile « cosy » et familier** (maquette validée : [`docs/mockups/quetes.html`](./docs/mockups/quetes.html), détails techniques : ARCHITECTURE §10).
+
+- **Chaque catégorie est une pièce** du plan de la maison, avec son illustration, sa barre de vie, de la poussière quand elle est sale et des étincelles quand elle est propre. Toucher une pièce filtre les quêtes.
+- **HUD** façon jeu mobile : niveau du foyer, pièces, série.
+- **Coffre de la semaine** pour la jauge commune ; il s'ouvre quand l'objectif est atteint.
+- **Quêtes** avec difficulté en étoiles, récompenses visibles et gros bouton « C'est fait ! ».
+- **Défi éclair** (« J'ai 10 min ») tiré au dé.
+- **Célébrations** : confettis, pièces qui volent jusqu'au compteur, « +XP », fenêtres « Niveau supérieur ! » et « Coffre ouvert ! », vibration, sons optionnels (coupés par défaut).
+- Thème de jour pour le MVP ; thème nuit plus tard.
 
 ---
 
@@ -261,14 +276,14 @@ Règles :
 - Quêtes du jour + « J'ai 10 min »
 - Validation 1 tap, annulation 5 min, historique partagé, « Merci »
 - XP, pièces, niveau du foyer, jauge commune, série hebdo
-- Boutique de récompenses (CRUD + achat + « honorée »)
+- Boutique de récompenses (création + achat + « honorée »), récompenses communes débloquables
+- Badges, historique de l'XP par semaine, duel optionnel
 - Notifications push (matin, soir, signaux)
 - Fonctionnement **hors ligne** avec synchronisation entre les deux téléphones
 
 ### Plus tard
 
-- Duel hebdomadaire (conçu ici, implémentation après le MVP si le besoin est confirmé)
-- Badges avancés, statistiques de répartition
+- Statistiques de répartition détaillées
 - Chaînage de tâches (ex. « Lancer une machine » → signal automatique « Machine terminée »)
 - Minuteur « Speed clean »
 - Boss hebdomadaire, avatar / maison qui évolue
@@ -289,6 +304,6 @@ Règles :
 ## 16. Questions ouvertes
 
 - Liste des récompenses de la boutique (à définir ensemble).
-- Courbe de niveau du foyer et liste des badges.
+- Liste des badges.
 - Nom de l'application.
 - Valeurs du catalogue et du barème : à ajuster après 2 à 3 semaines d'usage réel.
