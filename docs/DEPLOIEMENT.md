@@ -33,18 +33,11 @@ ouvre une pull request vers `main` sur GitHub et fusionne-la (ou demande-moi de 
 1. Créer un compte sur [neon.tech](https://neon.tech) (connexion avec GitHub possible).
 2. **Create project** : nom `quetes-maison`, Postgres 16 ou plus, région **AWS Europe Central 1 (Frankfurt)**.
 3. Sur le tableau de bord du projet : **Connect** → cocher **Connection pooling** → copier la chaîne de connexion.
-   Elle ressemble à `postgresql://neondb_owner:…@ep-…-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require`
-   (le mot `-pooler` doit y figurer). → `NUXT_DATABASE_URL`.
-4. **Créer les tables.** Deux possibilités :
-   - **Sans rien installer** : dans Neon, **SQL Editor**, coller puis exécuter le contenu de chaque fichier de
-     [`server/db/migrations`](../server/db/migrations), **dans l'ordre** (`0000_…`, puis `0001_…`).
-   - **Depuis ton poste** (Node 22 et pnpm installés) :
-     ```bash
-     git clone https://github.com/qgransart/HouseholdApp.git && cd HouseholdApp
-     pnpm install
-     NUXT_DATABASE_URL="postgresql://…" pnpm db:migrate
-     ```
-   À refaire à chaque nouvelle migration ajoutée dans `server/db/migrations`.
+   Elle ressemble à `postgresql://neondb_owner:…@ep-…-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
+   (le mot `-pooler` doit y figurer). → `NUXT_DATABASE_URL`, telle quelle.
+4. **Les tables se créent toutes seules** : chaque déploiement de production sur Vercel applique les migrations
+   en attente (`pnpm db:deploy`, voir `vercel.json`) avant de construire l'app. Rien à faire dans Neon.
+   Les déploiements de prévisualisation ne touchent jamais à la base.
 
 ## 2. Mot de passe de session
 
@@ -67,9 +60,10 @@ L'adresse de l'app est nécessaire pour configurer Google : on crée donc le pro
 3. Avant de déployer, ouvrir **Environment Variables** et ajouter `NUXT_DATABASE_URL`,
    `NUXT_SESSION_PASSWORD` et `NUXT_ALLOWED_EMAILS` (ex. `toi@gmail.com,elle@gmail.com`).
 4. **Deploy.** Noter l'adresse obtenue, par exemple `https://household-app.vercel.app`.
-5. Dans **Settings** :
-   - **General → Node.js Version** : `22.x`.
-   - **Functions → Function Region** : `Frankfurt, Germany (fra1)`, au plus près de la base Neon.
+5. Dans **Settings → General → Node.js Version** : `22.x`.
+   La région des fonctions (Frankfurt, au plus près de Neon) et la commande de build sont déjà fixées par `vercel.json`.
+6. Dans les journaux du build (**Deployments → le déploiement → Building**), la ligne
+   `[migrate] Database schema is up to date.` confirme que la base est prête.
 
 ## 4. Connexion Google
 
@@ -130,7 +124,7 @@ propose **Retrouver ma maison**.
 | Google affiche « Accès bloqué » | Le compte n'est pas utilisateur de test | L'ajouter dans l'écran de consentement OAuth |
 | Retour sur la page de connexion avec « non autorisé » | Email absent de `NUXT_ALLOWED_EMAILS` | Corriger la variable, puis **Redeploy** |
 | Réglages → « Database not configured » ou erreurs 503 | `NUXT_DATABASE_URL` manquante | Ajouter la variable, puis **Redeploy** |
-| Erreurs 500 à la synchronisation | Tables absentes | Appliquer les migrations (étape 1.4) |
+| Build en échec sur `[migrate] Migration failed` | Chaîne Neon incorrecte ou base inaccessible | Recopier la chaîne *pooled* depuis Neon dans `NUXT_DATABASE_URL`, puis **Redeploy** |
 | Pas de bouton « Installer » | Page ouverte hors de Chrome, ou déjà installée | Ouvrir dans Chrome ; vérifier l'écran d'accueil |
 
 ## Ce qui n'est pas encore actif

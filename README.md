@@ -28,7 +28,8 @@ pnpm dev          # http://localhost:3000
 | `pnpm typecheck` | Vérification des types (`vue-tsc`) |
 | `pnpm test` | Tests unitaires (Vitest) |
 | `pnpm db:generate` | Génère une migration SQL après une modification de `server/db/schema.ts` |
-| `pnpm db:migrate` | Applique les migrations sur `NUXT_DATABASE_URL` |
+| `pnpm db:migrate` | Applique les migrations sur `NUXT_DATABASE_URL` (drizzle-kit) |
+| `pnpm db:deploy` | Idem, lancé automatiquement par le build de production Vercel (ignoré en prévisualisation) |
 
 ## Installer l'app sur Android
 
