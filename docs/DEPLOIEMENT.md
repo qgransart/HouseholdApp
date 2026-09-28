@@ -72,7 +72,9 @@ L'adresse de l'app est nécessaire pour configurer Google : on crée donc le pro
    type **Externe**, nom de l'app, ton email ; laisser le statut **Test** et ajouter
    **vos deux adresses Gmail comme utilisateurs de test**. Le mode test suffit pour deux personnes :
    aucune validation Google n'est nécessaire.
-3. **Identifiants → Créer des identifiants → ID client OAuth**, type **Application Web** :
+3. **Identifiants → Créer des identifiants → ID client OAuth**, type **Application Web**
+   (surtout pas « Ordinateur de bureau » : ce type n'accepte aucune URI de redirection et provoque
+   `Erreur 400 : redirect_uri_mismatch` ; le type d'un client ne se modifie pas, il faut en recréer un) :
    - Origines JavaScript autorisées : `https://household-app.vercel.app`
    - URI de redirection autorisés : `https://household-app.vercel.app/auth/google`
 
@@ -120,7 +122,7 @@ propose **Retrouver ma maison**.
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
-| Google affiche `redirect_uri_mismatch` | L'URI de redirection ne correspond pas exactement | Vérifier `https://<adresse>/auth/google` dans la console Google. Avec un domaine personnalisé, ajouter aussi la variable `NUXT_OAUTH_GOOGLE_REDIRECT_URL` |
+| Google affiche `redirect_uri_mismatch` | Client OAuth de type « Ordinateur de bureau », ou URI de redirection qui ne correspond pas exactement | Vérifier `https://<adresse>/auth/google` dans la console Google. Avec un domaine personnalisé, ajouter aussi la variable `NUXT_OAUTH_GOOGLE_REDIRECT_URL` |
 | Google affiche « Accès bloqué » | Le compte n'est pas utilisateur de test | L'ajouter dans l'écran de consentement OAuth |
 | Retour sur la page de connexion avec « non autorisé » | Email absent de `NUXT_ALLOWED_EMAILS` | Corriger la variable, puis **Redeploy** |
 | Réglages → « Database not configured » ou erreurs 503 | `NUXT_DATABASE_URL` manquante | Ajouter la variable, puis **Redeploy** |
