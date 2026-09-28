@@ -19,3 +19,50 @@ self.addEventListener('message', (event) => {
     void self.skipWaiting()
   }
 })
+
+/** Payload sent by the server (shared/domain/notifications.ts). */
+interface PushPayload {
+  title: string
+  body: string
+  tag: string
+  url: string
+}
+
+self.addEventListener('push', (event) => {
+  let payload: PushPayload
+  try {
+    payload = event.data?.json() as PushPayload
+  }
+  catch {
+    return
+  }
+  if (!payload?.title) {
+    return
+  }
+  event.waitUntil(self.registration.showNotification(payload.title, {
+    body: payload.body,
+    tag: payload.tag,
+    // A replaced notification (same tag) still alerts: it carries new information.
+    renotify: true,
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    data: { url: payload.url },
+  } as NotificationOptions))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = new URL((event.notification.data as { url?: string } | null)?.url ?? '/', self.location.origin)
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    const open = windows.find(client => new URL(client.url).origin === url.origin)
+    if (open) {
+      await open.focus()
+      if (new URL(open.url).pathname !== url.pathname) {
+        await open.navigate(url.href).catch(() => {})
+      }
+      return
+    }
+    await self.clients.openWindow(url.href)
+  })())
+})

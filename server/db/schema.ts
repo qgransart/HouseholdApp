@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { bigint, boolean, date, index, integer, jsonb, pgSequence, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import type { HouseholdSettings, NotificationPrefs, RoomIcon, TaskType } from '#shared/types/entities'
 import type { TaskSize } from '#shared/domain/types'
+import type { NotificationKind } from '#shared/domain/notifications'
 
 /**
  * Server mirror of the synced rows (shared/types/entities.ts), columns in snake_case.
@@ -137,3 +138,31 @@ export const invitations = pgTable('invitations', {
   usedAt: instant(),
   usedByEmail: text(),
 }, table => [uniqueIndex('invitations_code_hash_unique').on(table.codeHash)])
+
+/** Server only: Web Push endpoints of a member, one per installed device (ARCHITECTURE §7). */
+export const pushSubscriptions = pgTable('push_subscriptions', {
+  id: uuid().primaryKey().defaultRandom(),
+  householdId: uuid().notNull().references(() => households.id),
+  memberId: uuid().notNull(),
+  // Unique: a device re-subscribing (or changing account) takes its endpoint over.
+  endpoint: text().notNull().unique(),
+  p256dh: text().notNull(),
+  auth: text().notNull(),
+  createdAt: instant().notNull(),
+}, table => [index('push_subscriptions_member_idx').on(table.memberId)])
+
+/**
+ * Server only: every notification sent, claimed before sending so that a duplicated tick never
+ * sends twice. Grouped signals share one `notificationId` (one notification, several rows).
+ */
+export const notificationLog = pgTable('notification_log', {
+  id: uuid().primaryKey().defaultRandom(),
+  notificationId: uuid().notNull(),
+  householdId: uuid().notNull().references(() => households.id),
+  memberId: uuid().notNull(),
+  kind: text().$type<NotificationKind>().notNull(),
+  localDate: date({ mode: 'string' }).notNull(),
+  /** `kind:member:date` for scheduled notifications, `signal:member:signalId` for alerts. */
+  dedupeKey: text().notNull().unique(),
+  sentAt: instant().notNull(),
+}, table => [index('notification_log_member_date_idx').on(table.memberId, table.localDate)])

@@ -35,13 +35,13 @@ function toDatabase(row: Row): Record<string, unknown> {
     [key, INSTANT_FIELDS.has(key) && typeof value === 'string' ? new Date(value) : value]))
 }
 
-function toWire(row: Record<string, unknown>): Record<string, unknown> {
+export function toWire(row: Record<string, unknown>): Record<string, unknown> {
   const { rev: _rev, ...rest } = row
   return Object.fromEntries(Object.entries(rest).map(([key, value]) => [key, value instanceof Date ? value.toISOString() : value]))
 }
 
 /** Serialises every write and read of a household: a pull never misses a revision committed late. */
-async function lockHousehold(tx: Database, householdId: string) {
+export async function lockHousehold(tx: Database, householdId: string) {
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${householdId}))`)
 }
 

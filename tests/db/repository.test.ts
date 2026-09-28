@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { STANDARD_CATALOGUE } from '#shared/catalogue'
 import { buildTaskProgress, computeFreshness, parseLocalDate } from '#shared/domain'
 import { createDatabase, type HouseholdDatabase } from '../../app/db/database'
-import { toDomainTask } from '../../app/db/mappers'
+import { toDomainTask } from '../../shared/mappers'
 import {
   completeTask,
   createHousehold,

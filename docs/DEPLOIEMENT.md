@@ -11,7 +11,7 @@ Neon (base Postgres) ◄── Vercel (app + API) ──► Google (connexion)
                  vos deux téléphones Android (PWA installée)
 ```
 
-Garde un bloc-notes ouvert : tu vas y coller 5 valeurs au fil des étapes.
+Garde un bloc-notes ouvert : tu vas y coller les valeurs au fil des étapes (les 4 variables des notifications sont décrites à l'étape 7).
 
 | Variable | Obtenue à l'étape |
 |---|---|
@@ -69,10 +69,12 @@ L'adresse de l'app est nécessaire pour configurer Google : on crée donc le pro
 
 1. Sur [console.cloud.google.com](https://console.cloud.google.com), créer un projet « Quêtes de la maison ».
 2. **API et services → Écran de consentement OAuth** (ou **Google Auth Platform**) :
-   type **Externe**, nom de l'app, ton email ; laisser le statut **Test** et ajouter
+   type **Externe** (pas « Interne » : réservé aux comptes d'une organisation, il refuse les @gmail.com avec `org_internal`), nom de l'app, ton email ; laisser le statut **Test** et ajouter
    **vos deux adresses Gmail comme utilisateurs de test**. Le mode test suffit pour deux personnes :
    aucune validation Google n'est nécessaire.
-3. **Identifiants → Créer des identifiants → ID client OAuth**, type **Application Web** :
+3. **Identifiants → Créer des identifiants → ID client OAuth**, type **Application Web**
+   (surtout pas « Ordinateur de bureau » : ce type n'accepte aucune URI de redirection et provoque
+   `Erreur 400 : redirect_uri_mismatch` ; le type d'un client ne se modifie pas, il faut en recréer un) :
    - Origines JavaScript autorisées : `https://household-app.vercel.app`
    - URI de redirection autorisés : `https://household-app.vercel.app/auth/google`
 
@@ -106,7 +108,58 @@ est là, et reste gardée sur le téléphone sinon.
 **Téléphone changé ou app réinstallée ?** Se reconnecter avec le même compte Google : l'écran de bienvenue
 propose **Retrouver ma maison**.
 
-## 7. Vérifications
+## 7. Notifications
+
+Les quêtes du matin, le rappel du soir et les alertes « c'est plein » sont envoyés par le serveur.
+Compter **10 minutes**.
+
+### 7.1 Clés VAPID et secret du planificateur
+
+Sur ton ordinateur (Node installé), une seule fois :
+
+```bash
+npx web-push generate-vapid-keys   # affiche une clé publique et une clé privée
+openssl rand -base64 32            # secret du planificateur
+```
+
+Dans **Vercel → Settings → Environment Variables**, ajouter :
+
+| Variable | Valeur |
+|---|---|
+| `NUXT_PUBLIC_VAPID_PUBLIC_KEY` | la clé publique (*Public Key*) |
+| `NUXT_VAPID_PRIVATE_KEY` | la clé privée (*Private Key*) — secrète |
+| `NUXT_VAPID_SUBJECT` | `mailto:` suivi de ton email, ex. `mailto:toi@gmail.com` |
+| `NUXT_CRON_SECRET` | la chaîne générée par `openssl` — secrète |
+
+Puis **Deployments → ⋯ → Redeploy** : la clé publique est intégrée à l'app au moment du build.
+Ne plus changer les clés VAPID ensuite : cela désactiverait les notifications des deux téléphones
+jusqu'à ce que chacun les réactive.
+
+### 7.2 Planificateur : cron-job.org
+
+1. Créer un compte gratuit sur [cron-job.org](https://cron-job.org).
+2. **Create cronjob** :
+   - URL : `https://<adresse>/api/cron/tick`
+   - Planification : **toutes les 15 minutes**
+   - Onglet **Advanced** → **Headers** : clé `Authorization`, valeur `Bearer <NUXT_CRON_SECRET>`
+     (le mot `Bearer`, une espace, puis le secret).
+3. **Test run** : la réponse attendue est `200` avec un contenu du type `{"households":1,"sent":0}`.
+   Une réponse `404` signifie que le secret ne correspond pas (ou que la variable n'est pas déployée).
+4. Activer les notifications d'échec de cron-job.org par email : c'est ta seule alerte si le tick s'arrête.
+
+### 7.3 Sur chaque téléphone
+
+**Réglages → Notifications → Activer les notifications**, accepter, puis **Tester une notification** :
+elle doit arriver en quelques secondes, app fermée comprise. Choisir ensuite les heures du matin et du soir.
+
+Fonctionnement :
+- **Matin** (8 h par défaut) : les quêtes du jour, seulement s'il y en a.
+- **Soir** (19 h par défaut) : seulement s'il reste des quêtes.
+- **Alertes** : quand l'autre appuie sur « C'est plein » pour une de tes pièces, tout de suite ; entre 22 h et 8 h,
+  l'alerte attend le matin.
+- Jamais plus de 3 par jour et par personne, rien pendant les vacances.
+
+## 8. Vérifications
 
 | Vérification | Attendu |
 |---|---|
@@ -120,18 +173,16 @@ propose **Retrouver ma maison**.
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
-| Google affiche `redirect_uri_mismatch` | L'URI de redirection ne correspond pas exactement | Vérifier `https://<adresse>/auth/google` dans la console Google. Avec un domaine personnalisé, ajouter aussi la variable `NUXT_OAUTH_GOOGLE_REDIRECT_URL` |
+| Google affiche `redirect_uri_mismatch` | Client OAuth de type « Ordinateur de bureau », ou URI de redirection qui ne correspond pas exactement | Vérifier `https://<adresse>/auth/google` dans la console Google. Avec un domaine personnalisé, ajouter aussi la variable `NUXT_OAUTH_GOOGLE_REDIRECT_URL` |
 | Google affiche « Accès bloqué » | Le compte n'est pas utilisateur de test | L'ajouter dans l'écran de consentement OAuth |
+| Google affiche `Erreur 403 : org_internal` | Écran de consentement en mode « Interne » (réservé à une organisation Workspace) | Le passer en **Externe**, statut **Test**, avec vos deux Gmail en utilisateurs de test. Si « Externe » est grisé, créer le projet Google avec **Aucune organisation** |
 | Retour sur la page de connexion avec « non autorisé » | Email absent de `NUXT_ALLOWED_EMAILS` | Corriger la variable, puis **Redeploy** |
 | Réglages → « Database not configured » ou erreurs 503 | `NUXT_DATABASE_URL` manquante | Ajouter la variable, puis **Redeploy** |
 | Build en échec sur `[migrate] Migration failed` | Chaîne Neon incorrecte ou base inaccessible | Recopier la chaîne *pooled* depuis Neon dans `NUXT_DATABASE_URL`, puis **Redeploy** |
+| « Tester une notification » absent | `NUXT_PUBLIC_VAPID_PUBLIC_KEY` manquante au moment du build | Ajouter la variable, puis **Redeploy** |
+| Test OK mais rien le matin | cron-job.org arrêté, mauvais en-tête, ou aucune quête ce jour-là | Regarder l'historique du job sur cron-job.org (réponses `200`) |
+| Plus aucune notification sur un téléphone | Permission retirée, données de Chrome effacées, ou clés VAPID changées | Réglages → **Activer les notifications**, puis **Tester** |
 | Pas de bouton « Installer » | Page ouverte hors de Chrome, ou déjà installée | Ouvrir dans Chrome ; vérifier l'écran d'accueil |
-
-## Ce qui n'est pas encore actif
-
-- **Notifications programmées** (quêtes du matin, rappel du soir, alertes envoyées à l'autre) : les réglages
-  sont enregistrés et le bouton « Tester une notification » fonctionne, mais l'envoi automatique arrive avec
-  le lot 6 (clés VAPID et cron-job.org, voir `.env.example`).
 
 ## Développement local
 
