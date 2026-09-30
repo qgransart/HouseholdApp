@@ -3,7 +3,7 @@
 > Document de référence technique. Complète [`CONCEPT.md`](./CONCEPT.md) (le « quoi ») en décrivant le « comment ».
 > Toute décision structurante doit être ajoutée au journal des décisions (§12).
 
-**Statut :** v0.5 — synchronisation (lot 5) et notifications Web Push (lot 6) en place, écrans complets d'après la maquette `docs/mockups`
+**Statut :** v0.6 — synchronisation (lot 5), notifications Web Push (lot 6) et lot « Couple » (prise en charge, troc, récap) en place, écrans complets d'après la maquette `docs/mockups`
 
 ---
 
@@ -118,12 +118,12 @@ public/                   # Icônes, manifest assets
 
 | Catégorie | Tables | Écriture | Conflits |
 |---|---|---|---|
-| **Événements** | `completions`, `signals`, `purchases`, `reactions` | Ajout ; seuls des champs d'état ultérieurs sont posés (`undone_at`, `honored_at`, `resolved_by_completion_id`) | Aucun (union) |
-| **Configuration** | `households`, `members`, `categories`, `tasks`, `rewards`, `vacations` | Modification rare | Last-write-wins par ligne |
+| **Événements** | `completions`, `signals`, `purchases`, `reactions`, `claims` | Ajout ; seuls des champs d'état ultérieurs sont posés (`undone_at`, `honored_at`, `resolved_by_completion_id`) | Aucun (union) |
+| **Configuration** | `households`, `members`, `categories`, `tasks`, `rewards`, `vacations`, `trades` (une proposition n'est modifiée que par sa réponse ou son annulation) | Modification rare | Last-write-wins par ligne |
 | **Projections** | fraîcheur, XP, niveau, jauge, **solde de pièces**, quêtes du jour | **Jamais stockées** — calculées par `shared/domain` | — |
 
 Règles :
-- Le **solde de pièces** = `Σ completions.coins (non annulées) − Σ purchases.cost`. Jamais stocké → aucune incohérence possible entre appareils.
+- Le **solde de pièces** = `Σ completions.coins (non annulées) − Σ purchases.cost ± Σ trades.coins (acceptés)`. Jamais stocké → aucune incohérence possible entre appareils.
 - L'**XP et les pièces sont figées** dans chaque `completion` au moment de la validation (barème et bonus d'anticipation inclus) : un changement de barème ne réécrit pas l'historique.
 
 ### 5.2 Tables
@@ -144,6 +144,9 @@ rewards             id, household_id, name, cost, kind ('personal' | 'common'), 
 purchases      ⚡   id, household_id, reward_id, member_id, cost, purchased_at, honored_at
 reactions      ⚡   id, household_id, completion_id, member_id, created_at
 vacations           id, household_id, starts_on, ends_on
+claims         ⚡   id, household_id, task_id, member_id, claimed_on, created_at, released_at, trade_id
+trades              id, household_id, proposed_by, proposed_to, request_task_id, offer_task_id,
+                    coins, due_on, created_at, accepted_at, declined_at, cancelled_at
 push_subscriptions  id, household_id, member_id, endpoint (unique), p256dh, auth, created_at      -- serveur uniquement
 notification_log    id, notification_id, household_id, member_id, kind, local_date,
                     dedupe_key (unique), sent_at                                               -- serveur uniquement
@@ -207,12 +210,15 @@ cron-job.org ──(*/15 min, header Authorization: Bearer <NUXT_CRON_SECRET>)�
     • Alertes : signaux manuels ouverts de moins de 24 h, différés par la plage silencieuse
   Rien pendant les vacances.
 
-Signal manuel ──► /api/sync/push ──► notifySignals() : push immédiat au responsable de la pièce
+    • Récap   : le dimanche, fenêtre [18 h, +2 h), semaine de l'autre membre (s'il a fait au moins une quête)
+
+Signal, « je m'en occupe », troc ──► /api/sync/push ──► notifyInstant() : push immédiat
 ```
 
 Règles (logique pure : `shared/domain/notifications.ts`, orchestration : `server/services/notifications.ts`) :
 
 - **Destinataire d'une alerte** : le responsable de la pièce de la tâche, s'il n'est pas celui qui l'a signalée. Les alertes en attente d'un membre sont **regroupées** en une notification.
+- **« Je m'en occupe »** : notifié à l'autre membre si la tâche est dans ses pièces ou s'il avait lancé une alerte dessus ; pas pour une prise en charge issue d'un troc (le troc est déjà annoncé). **Troc** : la proposition au destinataire, la réponse au proposeur. Même préférence « alertes », même plage silencieuse, même âge maximal (24 h) que les signaux.
 - **Plage silencieuse 22 h – 8 h** : elle retient les alertes (envoyées au premier tick après 8 h). Les notifications planifiées suivent l'heure choisie par le membre (un matin à 7 h 30 est un choix), mais aucune fenêtre ne déborde sur 22 h.
 - **Signaux automatiques** (délai max dépassé) : pas de notification dédiée, ils ouvrent la notification du matin (« 🔔 Poubelle pleine · … »).
 - **Idempotence et plafond** : chaque fait annoncé a une clé (`morning:<membre>:<date>`, `signal:<membre>:<signal>`) réservée dans `notification_log` **avant** l'envoi, sous le verrou du foyer (D15) ; un tick en double ou concurrent n'envoie rien de plus. Plafond **3 notifications / jour / membre** (`count(distinct notification_id)`, une alerte groupée compte pour une).
@@ -308,6 +314,9 @@ Référence visuelle : [`docs/mockups/quetes.html`](./docs/mockups/quetes.html) 
 | D18 | Réservation de la notification (`notification_log.dedupe_key` unique) **avant** l'envoi | Journaliser après l'envoi, file de messages | Idempotence du tick sans infrastructure en plus ; au pire une notification perdue, jamais un doublon |
 | D19 | Alerte « c'est plein » envoyée pendant la requête de sync, le tick ne faisant que rattraper | Attendre le tick (jusqu'à 15 min), file de tâches | Instantané sans service supplémentaire ; un échec d'envoi ne fait pas échouer la sync |
 | D20 | `web-push` (Node) pour le chiffrement et la signature VAPID | Implémentation maison (RFC 8291 / 8292), service tiers (OneSignal…) | Bibliothèque de référence, pas de compte externe ; le chiffrement à la main serait un risque inutile |
+| D21 | « Je m'en occupe » **daté** (`claimed_on`), qui expire seul le soir ; en cas de course hors ligne, la première prise en charge gagne | Prise en charge sans échéance, verrou côté serveur | Jamais de promesse qui traîne ; aucune coordination réseau nécessaire |
+| D22 | Un troc accepté crée **deux prises en charge** ; les pièces changent de main **à l'acceptation** | Nouveau mécanisme d'affectation, paiement à la réalisation | Réutilise les règles des quêtes ; « sur l'honneur » comme la boutique, sans lier le paiement aux validations |
+| D23 | Le pull ignore les tables inconnues de l'appareil (à partir de cette version) ; les préférences sans `recap` sont complétées par le serveur | Version de protocole négociée | À la prochaine nouvelle table, un téléphone pas encore mis à jour continuera de se synchroniser. Cette fois, les appareils en version antérieure doivent accepter la mise à jour pour se resynchroniser |
 
 ---
 

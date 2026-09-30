@@ -3,7 +3,7 @@
 > Document de référence du concept produit. Il sert de base aux décisions d'architecture (étape 2) et au développement (étape 3).
 > Toute évolution fonctionnelle doit être reportée ici.
 
-**Statut :** concept figé pour le MVP — v0.3 (boutique, badges et duel précisés d'après la maquette complète)
+**Statut :** v0.4 — MVP livré ; lot « Couple » ajouté (§9 bis : « Je m'en occupe », troc, récap du dimanche)
 **Utilisateurs cibles :** un foyer de 2 personnes (usage privé, non publié sur les stores)
 
 ---
@@ -170,6 +170,36 @@ Pendant le **mode vacances**, aucune quête n'est proposée.
 
 ---
 
+## 9 bis. Jouer à deux (lot « Couple »)
+
+Principe commun : chaque fonctionnalité **réduit une friction** ou **rend visible l'effort de l'autre**, jamais ne crée de terrain de reproche. Aucune comparaison chiffrée face à face.
+
+### « Je m'en occupe »
+
+- Sur n'importe quelle tâche active, un membre peut dire **« Je m'en occupe »** pour **aujourd'hui** (ou demain, via un troc).
+- Effets le jour dit :
+  - la tâche apparaît **en tête de ses quêtes**, même hors de ses pièces (c'est alors un coup de main) et même si elle n'est pas encore urgente : c'est une promesse ;
+  - elle **disparaît des quêtes de l'autre** et de « J'ai 10 min », avec la mention « Quentin s'en occupe ».
+- Une tâche ne peut être prise en charge que par une personne à la fois. On peut **y renoncer** (« Finalement non »). La prise en charge **expire d'elle-même le soir** : jamais de tâche « promise » qui traîne.
+- L'autre est **notifié** quand la tâche est dans ses pièces ou qu'il avait lancé une alerte dessus (« Quentin s'en occupe : Sortir les ordures »).
+
+### Troc de tâches
+
+- Un membre propose à l'autre, pour **aujourd'hui ou demain** :
+  - **échange** : « Tu fais *ma tâche*, je fais *ta tâche* » ;
+  - **service payé** : « Tu fais *ma tâche*, je te donne *N pièces* » (10 à 500) ;
+  - les deux à la fois.
+- L'autre **accepte ou refuse** (notification dans les deux sens). Le proposeur peut **annuler** tant qu'il n'y a pas de réponse. Sans réponse, la proposition **expire** après le jour prévu.
+- Accepté : chacun **prend en charge** la tâche de l'autre ce jour-là (voir ci-dessus), et les pièces passent **immédiatement** d'un porte-monnaie à l'autre. Sur l'honneur, comme la boutique.
+- On ne peut pas proposer plus de pièces qu'on n'en a ; l'acceptation est refusée si le proposeur n'a plus assez de pièces.
+
+### Récap du dimanche
+
+- Écran **« Notre semaine »** (Trophées → Semaine, ou notification) : ce que **l'autre** a fait cette semaine (nombre de quêtes, temps passé, les 3 plus grosses tâches), avec un **« Merci »** en un tap sur chacune ; puis une ligne sur sa propre semaine et la jauge commune. Consultable aussi pour la semaine précédente.
+- **Notification le dimanche à 18 h** (désactivable) : « Camille a fait 14 quêtes cette semaine (3 h 10), dont Détartrage complet. Un merci ? ». Rien n'est envoyé si l'autre n'a rien fait : jamais de culpabilisation.
+
+---
+
 ## 10. Catalogue standard initial
 
 Proposé à la création du foyer ; chaque tâche peut être désactivée ou modifiée. Valeurs par défaut à ajuster après retours d'usage.
@@ -231,6 +261,9 @@ Plateforme cible : **Android** (Chrome) → Web Push pleinement supporté. Icôn
 | **Quêtes du jour** | Planifiée le matin (heure réglable, défaut 8 h) | 1 / jour |
 | **Rappel du soir** | Planifiée (défaut 19 h), **uniquement s'il reste des quêtes** | 0–1 / jour |
 | **Signal** | Instantanée, quand l'autre membre appuie sur « C'est plein » | À l'événement |
+| **Prise en charge** | Instantanée, quand l'autre dit « Je m'en occupe » sur une de tes tâches ou une de tes alertes | À l'événement |
+| **Troc** | Instantanée : proposition reçue, réponse à ta proposition | À l'événement |
+| **Récap** | Le dimanche à 18 h, si l'autre a fait au moins une quête | 1 / semaine |
 
 Règles :
 - **Maximum 3 notifications planifiées / jour / membre** ; les signaux rapprochés sont regroupés.

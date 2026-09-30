@@ -31,7 +31,7 @@ const ids = {
   done: '01926b3e-0000-7000-8000-000000000006',
 }
 
-const prefs = { morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00', alerts: true }
+const prefs = { morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00', alerts: true, recap: true }
 const base = (id: string, updatedAt = T0) => ({ id, householdId: ids.household, updatedAt, deletedAt: null })
 
 const householdRows = (updatedAt = T0) => [
@@ -110,6 +110,23 @@ describe('push and pull', () => {
     await expect(pushMutations(db, { email: Q, body: { mutations: [completion(), other] } })).rejects.toMatchObject({ statusCode: 400 })
     await expect(pushMutations(db, { email: Q, body: { mutations: [completion({ xp: -5 })] } })).rejects.toBeInstanceOf(ServiceError)
     await expect(pushMutations(db, { email: Q, body: { mutations: [other] } })).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('syncs claims and trades, instants included', async () => {
+    const trade = { table: 'trades' as const, row: { ...base('01926b3e-0000-7000-8000-000000000010'), proposedBy: ids.quentin, proposedTo: ids.camille, requestTaskId: ids.dishes, offerTaskId: null, coins: 50, dueOn: '2026-09-24', createdAt: T0, acceptedAt: T1, declinedAt: null, cancelledAt: null } }
+    const claim = { table: 'claims' as const, row: { ...base('01926b3e-0000-7000-8000-000000000011'), taskId: ids.dishes, memberId: ids.camille, claimedOn: '2026-09-24', createdAt: T1, releasedAt: null, tradeId: trade.row.id } }
+    await pushMutations(db, { email: Q, body: { mutations: [trade, claim] } })
+    const { rows } = await pullRows(Q)
+    expect(rows.find(r => r.table === 'trades')?.row).toMatchObject({ acceptedAt: T1, coins: 50, dueOn: '2026-09-24' })
+    expect(rows.find(r => r.table === 'claims')?.row).toMatchObject({ claimedOn: '2026-09-24', tradeId: trade.row.id })
+  })
+
+  it('accepts preferences sent by a device that does not know the recap yet', async () => {
+    const [quentin] = householdRows(T1).filter(m => m.table === 'members')
+    const { recap: _recap, ...oldPrefs } = prefs
+    await pushMutations(db, { email: Q, body: { mutations: [{ ...quentin!, row: { ...quentin!.row, notificationPrefs: oldPrefs } }] } })
+    const [stored] = await db.select().from(members).where(eq(members.id, ids.quentin))
+    expect(stored?.notificationPrefs.recap).toBe(true)
   })
 
   it('refuses to pull for an account without household', async () => {

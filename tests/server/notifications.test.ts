@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { NotificationMessage } from '#shared/domain'
 import type { Database } from '../../server/db/client'
 import { members, notificationLog, pushSubscriptions } from '../../server/db/schema'
-import { notifySignals, runNotificationTick, saveSubscription, sendTestNotification, type PushResult, type PushTarget } from '../../server/services/notifications'
+import { notifyInstant, runNotificationTick, saveSubscription, sendTestNotification, type PushResult, type PushTarget } from '../../server/services/notifications'
 import { pushMutations } from '../../server/services/sync'
 import { createTestDatabase, resetTestDatabase } from './testDatabase'
 
@@ -29,7 +29,7 @@ const ids = {
   vacation: '01926b3e-0000-7000-8000-000000000009',
 }
 
-const prefs = { morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00', alerts: true }
+const prefs = { morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00', alerts: true, recap: true }
 const base = (id: string) => ({ id, householdId: ids.household, updatedAt: T0, deletedAt: null })
 const task = { weeklyQuota: null, active: true, snoozedUntil: null, baselineOn: '2026-09-23' }
 
@@ -107,15 +107,15 @@ describe('morning and evening', () => {
 describe('signals', () => {
   it('alerts the owner of the task right away, once', async () => {
     await raiseSignal(paris('12:00'))
-    expect(await notifySignals(db, { householdId: ids.household, now: paris('12:00'), sender })).toBe(1)
+    expect(await notifyInstant(db, { householdId: ids.household, now: paris('12:00'), sender })).toBe(1)
     expect(sent[0]).toMatchObject({ target: { endpoint: 'https://push.example/quentin' }, message: { title: '🔔 Poubelle pleine', body: 'Camille a signalé : Sortir les ordures.' } })
-    expect(await notifySignals(db, { householdId: ids.household, now: paris('12:01'), sender })).toBe(0)
+    expect(await notifyInstant(db, { householdId: ids.household, now: paris('12:01'), sender })).toBe(0)
     expect((await tick(paris('12:15'))).sent).toBe(0)
   })
 
   it('defers the alerts raised during the quiet hours to the morning', async () => {
     await raiseSignal(paris('23:00', '2026-09-23'))
-    expect(await notifySignals(db, { householdId: ids.household, now: paris('23:00', '2026-09-23'), sender })).toBe(0)
+    expect(await notifyInstant(db, { householdId: ids.household, now: paris('23:00', '2026-09-23'), sender })).toBe(0)
     await setPrefs(ids.quentin, { morning: false })
     expect((await tick(paris('08:00'))).sent).toBe(1)
     expect(sent[0]?.message.tag).toBe('signals')
@@ -124,7 +124,46 @@ describe('signals', () => {
   it('respects the member preference', async () => {
     await setPrefs(ids.quentin, { alerts: false })
     await raiseSignal(paris('12:00'))
-    expect(await notifySignals(db, { householdId: ids.household, now: paris('12:00'), sender })).toBe(0)
+    expect(await notifyInstant(db, { householdId: ids.household, now: paris('12:00'), sender })).toBe(0)
+  })
+})
+
+describe('playing as a couple', () => {
+  const claim = (overrides: Record<string, unknown> = {}) => ({ table: 'claims' as const, row: { ...base('01926b3e-0000-7000-8000-000000000020'), taskId: ids.dishes, memberId: ids.camille, claimedOn: '2026-09-24', createdAt: paris('12:00').toISOString(), releasedAt: null, tradeId: null, ...overrides } })
+  const trade = (overrides: Record<string, unknown> = {}) => ({ table: 'trades' as const, row: { ...base('01926b3e-0000-7000-8000-000000000021'), proposedBy: ids.camille, proposedTo: ids.quentin, requestTaskId: ids.dishes, offerTaskId: null, coins: 50, dueOn: '2026-09-24', createdAt: paris('12:00').toISOString(), acceptedAt: null, declinedAt: null, cancelledAt: null, ...overrides } })
+  const instant = (at: Date) => notifyInstant(db, { householdId: ids.household, now: at, sender })
+
+  it('tells the owner that the other one takes care of a task, once', async () => {
+    await push(C, [claim()])
+    expect(await instant(paris('12:00'))).toBe(1)
+    expect(sent[0]?.message).toMatchObject({ title: '🙌 Camille s\'en occupe', body: 'Faire la vaisselle.' })
+    expect(await instant(paris('12:05'))).toBe(0)
+  })
+
+  it('says nothing about a released claim or one of the owner themselves', async () => {
+    await push(C, [claim({ releasedAt: paris('12:00').toISOString() })])
+    await push(Q, [claim({ id: '01926b3e-0000-7000-8000-000000000022', memberId: ids.quentin })])
+    expect(await instant(paris('12:00'))).toBe(0)
+  })
+
+  it('announces a proposal, then its answer', async () => {
+    await push(C, [trade()])
+    expect(await instant(paris('12:00'))).toBe(1)
+    expect(sent[0]).toMatchObject({ target: { endpoint: 'https://push.example/quentin' }, message: { title: '🤝 Camille te propose un échange', body: 'Tu fais Faire la vaisselle, 50 pièces pour toi.' } })
+
+    sent = []
+    await push(Q, [trade({ updatedAt: paris('12:30').toISOString(), acceptedAt: paris('12:30').toISOString() })])
+    expect(await instant(paris('12:30'))).toBe(1)
+    expect(sent[0]).toMatchObject({ target: { endpoint: 'https://push.example/camille' }, message: { title: '🤝 Quentin a accepté l\'échange' } })
+  })
+
+  it('sends the Sunday recap of the other member\'s week', async () => {
+    await push(C, [{ table: 'completions', row: { ...base(ids.done), taskId: ids.dishes, memberId: ids.camille, completedAt: paris('10:00', '2026-09-26').toISOString(), xp: 15, coins: 15, isHelp: true, undoneAt: null } }])
+    await setPrefs(ids.quentin, { morning: false, evening: false })
+    await setPrefs(ids.camille, { morning: false, evening: false })
+    expect((await tick(paris('18:15', '2026-09-27'))).sent).toBe(1)
+    expect(sent[0]).toMatchObject({ target: { endpoint: 'https://push.example/quentin' }, message: { title: 'Notre semaine 💞', url: '/recap' } })
+    expect((await tick(paris('18:30', '2026-09-27'))).sent).toBe(0)
   })
 })
 

@@ -21,13 +21,14 @@ watch(() => me.value?.dailyBudgetMin, value => value && (budget.value = value))
 /* Notifications */
 const prefs = computed<NotificationPrefs>(() => me.value?.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS)
 const savePrefs = (changes: Partial<NotificationPrefs>) => actions.saveMember({ notificationPrefs: { ...prefs.value, ...changes } })
-const prefModel = (key: 'morning' | 'evening' | 'alerts') => computed({
+const prefModel = (key: 'morning' | 'evening' | 'alerts' | 'recap') => computed({
   get: () => prefs.value[key],
   set: value => void savePrefs({ [key]: value }),
 })
 const morning = prefModel('morning')
 const evening = prefModel('evening')
 const alerts = prefModel('alerts')
+const recap = prefModel('recap')
 const MORNING_TIMES = ['07:00', '07:30', '08:00', '08:30', '09:00']
 const EVENING_TIMES = ['18:00', '19:00', '20:00', '21:00']
 
@@ -226,7 +227,13 @@ const syncLabel = computed(() => {
           v-model="alerts"
           class="settings-list__item"
           label="Alertes instantanées"
-          hint="Quand l'autre signale « c'est plein »."
+          hint="« C'est plein », « Je m'en occupe » et les échanges."
+        />
+        <GameSwitch
+          v-model="recap"
+          class="settings-list__item"
+          label="Récap du dimanche"
+          hint="Le dimanche à 18 h, ce que l'autre a fait dans la semaine."
         />
         <p class="field__hint settings-list__item">
           Jamais plus de 3 par jour. Les alertes lancées entre 22 h et 8 h attendent le matin.

@@ -35,7 +35,10 @@ export interface NotificationPrefs {
   morningTime: string
   evening: boolean
   eveningTime: string
+  /** Instant alerts: "c'est plein", "je m'en occupe", trades. */
   alerts: boolean
+  /** Sunday recap of the other member's week. */
+  recap: boolean
 }
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
@@ -44,6 +47,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   evening: true,
   eveningTime: '19:00',
   alerts: true,
+  recap: true,
 }
 
 export interface MemberRow extends SyncedRow {
@@ -126,6 +130,30 @@ export interface VacationRow extends SyncedRow {
   endsOn: LocalDate
 }
 
+/** "Je m'en occupe" (CONCEPT §9 bis). */
+export interface ClaimRow extends SyncedRow {
+  taskId: string
+  memberId: string
+  claimedOn: LocalDate
+  createdAt: string
+  releasedAt: string | null
+  tradeId: string | null
+}
+
+/** Task swap between the two members (CONCEPT §9 bis). */
+export interface TradeRow extends SyncedRow {
+  proposedBy: string
+  proposedTo: string
+  requestTaskId: string
+  offerTaskId: string | null
+  coins: number
+  dueOn: LocalDate
+  createdAt: string
+  acceptedAt: string | null
+  declinedAt: string | null
+  cancelledAt: string | null
+}
+
 export interface SyncedTables {
   households: HouseholdRow
   members: MemberRow
@@ -137,6 +165,8 @@ export interface SyncedTables {
   purchases: PurchaseRow
   reactions: ReactionRow
   vacations: VacationRow
+  claims: ClaimRow
+  trades: TradeRow
 }
 
 export type SyncedTableName = keyof SyncedTables

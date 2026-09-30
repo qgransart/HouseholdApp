@@ -53,5 +53,11 @@ export const MAX_NOTIFICATIONS_PER_DAY = 3
  */
 export const SCHEDULED_NOTIFICATION_WINDOW_MINUTES = 120
 
-/** A manual signal older than this is not announced any more (it is still in the quests). */
-export const SIGNAL_NOTIFICATION_MAX_AGE_HOURS = 24
+/** The weekly recap is sent on Sunday from this time (CONCEPT §9 bis). */
+export const RECAP_TIME = '18:00'
+
+/** Coins a member can offer in a trade (CONCEPT §9 bis). */
+export const TRADE_MAX_COINS = 500
+
+/** An alert, claim or trade older than this is not announced any more (it is still in the app). */
+export const INSTANT_NOTIFICATION_MAX_AGE_HOURS = 24

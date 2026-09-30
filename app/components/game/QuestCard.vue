@@ -11,9 +11,13 @@ const props = defineProps<{
   helpFor?: string
   /** Extra line for quota tasks or signals (e.g. "2 / 4 cette semaine"). */
   detail?: string
+  /** The player said "Je m'en occupe" for today. */
+  claimed?: boolean
+  /** Offers "Je m'en occupe", to reassure the member who raised the alert. */
+  claimable?: boolean
 }>()
 
-const emit = defineEmits<{ complete: [origin: HTMLElement] }>()
+const emit = defineEmits<{ complete: [origin: HTMLElement], claim: [] }>()
 
 const DIFFICULTY = { S: 1, M: 2, L: 3, XL: 4 } as const
 
@@ -79,8 +83,22 @@ const stars = computed(() => DIFFICULTY[props.task.size])
           v-if="hasBonus"
           class="quest-card__chip quest-card__chip--coin"
         >Bonus anticipation</span>
+        <span
+          v-if="claimed"
+          class="quest-card__chip quest-card__chip--promise"
+        >Tu t'en occupes</span>
       </p>
     </div>
+    <GameChunkyButton
+      v-if="claimable && !claimed"
+      class="quest-card__action"
+      variant="ghost"
+      block
+      :aria-label="`Je m'en occupe : ${task.name}`"
+      @click="emit('claim')"
+    >
+      Je m'en occupe
+    </GameChunkyButton>
     <GameChunkyButton
       class="quest-card__action"
       block
@@ -194,6 +212,11 @@ const stars = computed(() => DIFFICULTY[props.task.size])
     &--help {
       color: var(--color-teal-dark);
       background: var(--color-teal-soft);
+    }
+
+    &--promise {
+      color: var(--color-gem-dark);
+      background: var(--color-gem-soft);
     }
   }
 

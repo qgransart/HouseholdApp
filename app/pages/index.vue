@@ -6,7 +6,7 @@ useHead({ title: 'Quêtes du jour' })
 
 const game = useGame()
 const { snapshot } = useHousehold()
-const { complete, undo } = useGameActions()
+const { complete, undo, claim } = useGameActions()
 const now = useClock()
 
 const selectedCategoryId = ref<string | null>(null)
@@ -121,7 +121,10 @@ const selectedRoomName = computed(() => selectedCategoryId.value ? game.categori
           :triggered-by-signal="quest.urgency.triggeredBySignal"
           :help-for="helpFor(quest)"
           :detail="questDetail(quest)"
+          :claimed="quest.claimed"
+          :claimable="quest.urgency.triggeredBySignal"
           @complete="origin => complete(quest.task, origin)"
+          @claim="claim(quest.task)"
         />
       </ul>
 
@@ -158,6 +161,8 @@ const selectedRoomName = computed(() => selectedCategoryId.value ? game.categori
       </ul>
     </GamePanel>
 
+    <GameTradeBoard />
+    <GameRecapBanner />
     <GameFlashChallenge />
     <GameAlertBoard />
   </div>

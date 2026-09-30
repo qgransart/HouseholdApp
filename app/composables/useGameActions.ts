@@ -1,7 +1,8 @@
 import { completeTask, DomainError, raiseSignal, undoCompletion, withdrawSignal } from '~/db/repository'
 import { setCategoryOwner, setVacationMode, snoozeTask, updateHouseholdSettings, updateMember, updateTask, type TaskChanges } from '~/db/management'
 import { createReward, honorPurchase, purchaseReward, thank } from '~/db/shop'
-import { computeLevel, type Task } from '#shared/domain'
+import { answerTrade, cancelTrade, claimTask, proposeTrade, releaseClaim, type TradeProposal } from '~/db/couple'
+import { computeLevel, type LocalDate, type Task } from '#shared/domain'
 import type { HouseholdSettings, NotificationPrefs } from '#shared/types/entities'
 import { centerOf } from './useFx'
 
@@ -188,5 +189,52 @@ export function useGameActions() {
     }
   }
 
-  return { complete, undo, toggleSignal, snooze, saveTask, changeOwner, setVacation, buy, honor, addReward, sayThanks, saveMember, saveHouseholdSettings }
+  /* Playing as a couple */
+
+  async function claim(task: Task, day: LocalDate = game.today.value) {
+    const member = game.currentMember.value
+    if (member && await run(() => claimTask(db, { taskId: task.id, memberId: member.id, day, now: now() }))) {
+      sound.play('coin')
+      toast.show(day === game.today.value ? `Tu t'occupes de « ${task.name} » aujourd'hui` : `Tu t'occupes de « ${task.name} » demain`)
+    }
+  }
+
+  async function release(claimId: string, taskName: string) {
+    const member = game.currentMember.value
+    if (member && await run(() => releaseClaim(db, { claimId, memberId: member.id, now: now() }).then(() => true))) {
+      toast.show(`« ${taskName} » n'est plus prise en charge`)
+    }
+  }
+
+  async function proposeSwap(proposal: Omit<TradeProposal, 'proposedBy' | 'proposedTo'>) {
+    const member = game.currentMember.value
+    const partner = game.partner.value
+    if (!member || !partner) {
+      return false
+    }
+    const trade = await run(() => proposeTrade(db, { ...proposal, proposedBy: member.id, proposedTo: partner.id, today: game.today.value, now: now() }))
+    if (trade) {
+      toast.show(`Proposition envoyée à ${partner.displayName}`)
+    }
+    return Boolean(trade)
+  }
+
+  async function answerSwap(tradeId: string, accept: boolean) {
+    const member = game.currentMember.value
+    if (member && await run(() => answerTrade(db, { tradeId, memberId: member.id, accept, today: game.today.value, now: now() }).then(() => true))) {
+      if (accept) {
+        sound.play('coin')
+      }
+      toast.show(accept ? 'Marché conclu ! Les quêtes sont échangées.' : 'Proposition déclinée')
+    }
+  }
+
+  async function cancelSwap(tradeId: string) {
+    const member = game.currentMember.value
+    if (member && await run(() => cancelTrade(db, { tradeId, memberId: member.id, today: game.today.value, now: now() }).then(() => true))) {
+      toast.show('Proposition annulée')
+    }
+  }
+
+  return { claim, release, proposeSwap, answerSwap, cancelSwap, complete, undo, toggleSignal, snooze, saveTask, changeOwner, setVacation, buy, honor, addReward, sayThanks, saveMember, saveHouseholdSettings }
 }

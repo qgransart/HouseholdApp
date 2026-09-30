@@ -55,6 +55,29 @@ async function complete(event: MouseEvent) {
   }
 }
 
+/* Playing as a couple */
+const claim = computed(() => props.task ? game.claimsToday.value.get(props.task.id) ?? null : null)
+const isMine = computed(() => claim.value?.memberId === game.currentMember.value?.id)
+const tradeOpen = ref(false)
+
+function openTrade() {
+  open.value = false
+  tradeOpen.value = true
+}
+
+async function toggleClaim() {
+  const task = props.task
+  if (!task) {
+    return
+  }
+  if (claim.value && isMine.value) {
+    await actions.release(claim.value.id, task.name)
+  }
+  else {
+    await actions.claim(task)
+  }
+}
+
 async function snooze(days: number) {
   if (props.task) {
     await actions.snooze(props.task, days)
@@ -110,6 +133,41 @@ async function save() {
         >
           <GameIcon name="check" /> C'est fait !
         </GameChunkyButton>
+        <div
+          v-if="game.partner.value"
+          class="task-sheet__group"
+          role="group"
+          :aria-labelledby="`${titleId}-duo`"
+        >
+          <p
+            :id="`${titleId}-duo`"
+            class="task-sheet__label"
+          >
+            À deux
+          </p>
+          <p
+            v-if="claim"
+            class="task-sheet__muted"
+          >
+            {{ isMine ? 'Tu t\'en occupes aujourd\'hui.' : `${game.memberName(claim.memberId)} s'en occupe aujourd'hui.` }}
+          </p>
+          <div class="task-sheet__row">
+            <GameChunkyButton
+              v-if="!claim || isMine"
+              variant="ghost"
+              :aria-pressed="isMine"
+              @click="toggleClaim"
+            >
+              {{ isMine ? 'Finalement non' : 'Je m\'en occupe' }}
+            </GameChunkyButton>
+            <GameChunkyButton
+              variant="ghost"
+              @click="openTrade"
+            >
+              Proposer un échange
+            </GameChunkyButton>
+          </div>
+        </div>
         <div
           class="task-sheet__group"
           role="group"
@@ -250,6 +308,10 @@ async function save() {
       </div>
     </template>
   </GameDialog>
+  <GameTradeDialog
+    v-model:open="tradeOpen"
+    :task="task"
+  />
 </template>
 
 <style lang="scss" scoped>
