@@ -1,7 +1,8 @@
+import { claimsOn } from './claims'
 import { QUEST_URGENCY_THRESHOLD, QUICK_TASK_MAX_MINUTES } from './config'
 import type { LocalDate } from './calendar'
 import type { TaskProgress } from './progress'
-import type { Category, Task, Vacation } from './types'
+import type { Category, Claim, Task, Vacation } from './types'
 import { computeUrgency, type Urgency } from './urgency'
 import { isOnVacation } from './vacation'
 
@@ -10,6 +11,8 @@ export interface Quest {
   urgency: Urgency
   /** The task belongs to a category owned by the other member. */
   isHelp: boolean
+  /** The member said "Je m'en occupe" for today. */
+  claimed: boolean
 }
 
 export interface QuestContext {
@@ -19,6 +22,8 @@ export interface QuestContext {
   progress: ReadonlyMap<string, TaskProgress>
   today: LocalDate
   vacations: readonly Vacation[]
+  /** "Je m'en occupe" of both members; only those of `today` apply. */
+  claims?: readonly Claim[]
 }
 
 export interface DailyQuests {
@@ -37,7 +42,9 @@ export function generateDailyQuests(context: QuestContext & { budgetMin: number 
     return { done: [], pending: [] }
   }
   const owners = ownerByCategory(context.categories)
+  const claims = claimsOn(context.claims ?? [], context.today)
   const done: Quest[] = []
+  const promised: Quest[] = []
   const candidates: Quest[] = []
 
   for (const task of context.tasks) {
@@ -46,8 +53,17 @@ export function generateDailyQuests(context: QuestContext & { budgetMin: number 
       continue
     }
     const isOwn = owners.get(task.categoryId) === context.memberId
+    const claim = claims.get(task.id)
     if (progress.completedTodayBy.has(context.memberId)) {
-      done.push({ task, urgency: computeUrgency(task, progress, context.today, context.vacations), isHelp: !isOwn })
+      done.push({ task, urgency: computeUrgency(task, progress, context.today, context.vacations), isHelp: !isOwn, claimed: claim?.memberId === context.memberId })
+      continue
+    }
+    if (claim && claim.memberId !== context.memberId) {
+      continue
+    }
+    // A promise holds whatever the room or the urgency, until someone does the task today.
+    if (claim && task.active && progress.completedTodayBy.size === 0) {
+      promised.push({ task, urgency: computeUrgency(task, progress, context.today, context.vacations), isHelp: !isOwn, claimed: true })
       continue
     }
     if (!isOwn || !isAvailable(task, context.today)) {
@@ -55,17 +71,17 @@ export function generateDailyQuests(context: QuestContext & { budgetMin: number 
     }
     const urgency = computeUrgency(task, progress, context.today, context.vacations)
     if (isWorthDoing(urgency)) {
-      candidates.push({ task, urgency, isHelp: false })
+      candidates.push({ task, urgency, isHelp: false, claimed: false })
     }
   }
 
-  let remainingBudget = context.budgetMin - done.reduce((sum, quest) => sum + quest.task.durationMin, 0)
-  const pending: Quest[] = []
+  let remainingBudget = context.budgetMin - [...done, ...promised].reduce((sum, quest) => sum + quest.task.durationMin, 0)
+  const pending: Quest[] = promised.sort(compareQuests)
   for (const quest of candidates.sort(compareQuests)) {
     const isSignal = quest.urgency.triggeredBySignal
     // The most urgent task is always offered, even if longer than the budget: otherwise
     // a big task (oven, windows) could never be scheduled.
-    const isFirstRegular = !isSignal && !pending.some(p => !p.urgency.triggeredBySignal)
+    const isFirstRegular = !isSignal && !pending.some(p => !p.urgency.triggeredBySignal && !p.claimed)
     const fits = quest.task.durationMin <= remainingBudget
     if (isSignal || fits || (isFirstRegular && remainingBudget > 0)) {
       pending.push(quest)
@@ -88,16 +104,18 @@ export function suggestQuickTasks(context: QuestContext & { maxMinutes?: number 
   }
   const maxMinutes = context.maxMinutes ?? QUICK_TASK_MAX_MINUTES
   const owners = ownerByCategory(context.categories)
+  const claims = claimsOn(context.claims ?? [], context.today)
   const suggestions: Quest[] = []
 
   for (const task of context.tasks) {
     const progress = context.progress.get(task.id)
-    if (!progress || !isAvailable(task, context.today) || task.durationMin > maxMinutes) {
+    const claim = claims.get(task.id)
+    if (!progress || !isAvailable(task, context.today) || task.durationMin > maxMinutes || (claim && claim.memberId !== context.memberId)) {
       continue
     }
     const urgency = computeUrgency(task, progress, context.today, context.vacations)
     if (isWorthDoing(urgency)) {
-      suggestions.push({ task, urgency, isHelp: owners.get(task.categoryId) !== context.memberId })
+      suggestions.push({ task, urgency, isHelp: owners.get(task.categoryId) !== context.memberId, claimed: claim?.memberId === context.memberId })
     }
   }
 

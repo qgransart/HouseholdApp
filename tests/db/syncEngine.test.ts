@@ -103,6 +103,12 @@ describe('pullChanges', () => {
     expect((await db.households.get(householdId))?.name).toBe('Appartement')
   })
 
+  it('skips the tables a newer app version added', async () => {
+    const { transport } = fakeTransport({ rows: [{ table: 'future' as never, row: { id: 'x' } }], cursor: 9 })
+    expect(await pullChanges(db, transport)).toBe(0)
+    expect(await getMeta(db, META_SYNC_CURSOR)).toBe(9)
+  })
+
   it('asks for changes since the stored cursor', async () => {
     await household()
     await pushOutbox(db, fakeTransport().transport)

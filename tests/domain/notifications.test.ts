@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { eveningMessage, isQuietTime, morningMessage, openScheduledWindows, signalMessage, toLocalTime, type Quest } from '#shared/domain'
-import { periodic, signalTask, TZ } from './factories'
+import { d, periodic, signalTask, TZ } from './factories'
 
 const prefs = { morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00' }
 
@@ -8,6 +8,7 @@ const quest = (name: string, durationMin = 10, triggeredBySignal = false): Quest
   task: triggeredBySignal ? signalTask({ id: name, name, durationMin, signalLabel: 'Poubelle pleine' }) : periodic({ id: name, name, durationMin }),
   urgency: { score: 1, triggeredBySignal },
   isHelp: false,
+  claimed: false,
 })
 
 describe('toLocalTime', () => {
@@ -29,25 +30,25 @@ describe('isQuietTime', () => {
 
 describe('openScheduledWindows', () => {
   it('opens a window at the chosen time for two hours', () => {
-    expect(openScheduledWindows(prefs, '07:59')).toEqual([])
-    expect(openScheduledWindows(prefs, '08:00')).toEqual(['morning'])
-    expect(openScheduledWindows(prefs, '09:59')).toEqual(['morning'])
-    expect(openScheduledWindows(prefs, '10:00')).toEqual([])
-    expect(openScheduledWindows(prefs, '19:30')).toEqual(['evening'])
+    expect(openScheduledWindows(prefs, '07:59', d('2026-09-24'))).toEqual([])
+    expect(openScheduledWindows(prefs, '08:00', d('2026-09-24'))).toEqual(['morning'])
+    expect(openScheduledWindows(prefs, '09:59', d('2026-09-24'))).toEqual(['morning'])
+    expect(openScheduledWindows(prefs, '10:00', d('2026-09-24'))).toEqual([])
+    expect(openScheduledWindows(prefs, '19:30', d('2026-09-24'))).toEqual(['evening'])
   })
 
   it('respects a disabled notification', () => {
-    expect(openScheduledWindows({ ...prefs, morning: false }, '08:15')).toEqual([])
+    expect(openScheduledWindows({ ...prefs, morning: false }, '08:15', d('2026-09-24'))).toEqual([])
   })
 
   it('lets the member choose a morning before the end of the quiet hours', () => {
-    expect(openScheduledWindows({ ...prefs, morningTime: '07:00' }, '07:10')).toEqual(['morning'])
+    expect(openScheduledWindows({ ...prefs, morningTime: '07:00' }, '07:10', d('2026-09-24'))).toEqual(['morning'])
   })
 
   it('never lets a window run into the quiet hours', () => {
     const late = { ...prefs, eveningTime: '21:00' }
-    expect(openScheduledWindows(late, '21:45')).toEqual(['evening'])
-    expect(openScheduledWindows(late, '22:10')).toEqual([])
+    expect(openScheduledWindows(late, '21:45', d('2026-09-24'))).toEqual(['evening'])
+    expect(openScheduledWindows(late, '22:10', d('2026-09-24'))).toEqual([])
   })
 })
 

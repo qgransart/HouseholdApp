@@ -74,3 +74,36 @@ export interface Vacation {
   startsOn: LocalDate
   endsOn: LocalDate
 }
+
+/** "Je m'en occupe": a member promises to do a task on a given day (CONCEPT §9 bis). */
+export interface Claim {
+  id: string
+  taskId: string
+  memberId: string
+  claimedOn: LocalDate
+  /** ISO 8601 instant; a released claim is ignored. */
+  releasedAt: string | null
+  /** ISO 8601 instant, used to settle two claims made offline at the same time. */
+  createdAt: string
+  /** Set when the claim comes from an accepted trade. */
+  tradeId: string | null
+}
+
+/**
+ * Task swap proposed by `proposedBy`: `proposedTo` does `requestTaskId`, in exchange for
+ * `offerTaskId` done by the proposer and/or `coins` paid by the proposer.
+ */
+export interface Trade {
+  id: string
+  proposedBy: string
+  proposedTo: string
+  requestTaskId: string
+  offerTaskId: string | null
+  coins: number
+  dueOn: LocalDate
+  /** ISO 8601 instants; at most one of the three is set. */
+  acceptedAt: string | null
+  declinedAt: string | null
+  cancelledAt: string | null
+  createdAt: string
+}

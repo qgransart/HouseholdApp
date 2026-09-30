@@ -10,6 +10,7 @@ import {
   DEFAULT_HOUSEHOLD_SETTINGS,
   DEFAULT_NOTIFICATION_PREFS,
   type CategoryRow,
+  type ClaimRow,
   type CompletionRow,
   type HouseholdRow,
   type MemberRow,
@@ -20,6 +21,7 @@ import {
   type SyncedTableName,
   type SyncedTables,
   type TaskRow,
+  type TradeRow,
   type VacationRow,
 } from '#shared/types/entities'
 import { SYNCED_TABLES, type HouseholdDatabase } from './database'
@@ -55,6 +57,8 @@ export interface HouseholdSnapshot {
   purchases: PurchaseRow[]
   reactions: ReactionRow[]
   vacations: VacationRow[]
+  claims: ClaimRow[]
+  trades: TradeRow[]
 }
 
 /** The whole household fits in memory for years (a few thousand completions per year). */
@@ -66,7 +70,7 @@ export async function loadSnapshot(db: HouseholdDatabase, householdId: string): 
   const byHousehold = <Name extends SyncedTableName>(table: Name) =>
     db.table<SyncedTables[Name], string>(table).where('householdId').equals(householdId).filter(notDeleted).toArray()
 
-  const [members, categories, tasks, completions, signals, rewards, purchases, reactions, vacations] = await Promise.all([
+  const [members, categories, tasks, completions, signals, rewards, purchases, reactions, vacations, claims, trades] = await Promise.all([
     byHousehold('members'),
     byHousehold('categories'),
     byHousehold('tasks'),
@@ -76,9 +80,11 @@ export async function loadSnapshot(db: HouseholdDatabase, householdId: string): 
     byHousehold('purchases'),
     byHousehold('reactions'),
     byHousehold('vacations'),
+    byHousehold('claims'),
+    byHousehold('trades'),
   ])
   categories.sort((a, b) => a.sortOrder - b.sortOrder)
-  return { household, members, categories, tasks, completions, signals, rewards, purchases, reactions, vacations }
+  return { household, members, categories, tasks, completions, signals, rewards, purchases, reactions, vacations, claims, trades }
 }
 
 /* ---------- Onboarding ---------- */

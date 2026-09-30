@@ -14,7 +14,7 @@ export async function createTestDatabase(): Promise<Database> {
 
 /** Empties every table: faster than migrating a fresh database for each test. */
 export async function resetTestDatabase(db: Database): Promise<void> {
-  const tables = ['notification_log', 'push_subscriptions', 'invitations', 'members', 'categories', 'tasks', 'completions', 'signals', 'rewards', 'purchases', 'reactions', 'vacations', 'households']
+  const tables = ['notification_log', 'push_subscriptions', 'invitations', 'claims', 'trades', 'members', 'categories', 'tasks', 'completions', 'signals', 'rewards', 'purchases', 'reactions', 'vacations', 'households']
   await db.execute(sql.raw(`TRUNCATE ${tables.map(table => `"${table}"`).join(', ')} CASCADE`))
 }
 

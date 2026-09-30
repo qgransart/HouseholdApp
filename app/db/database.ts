@@ -32,6 +32,8 @@ export const SYNCED_TABLES = [
   'purchases',
   'reactions',
   'vacations',
+  'claims',
+  'trades',
 ] as const satisfies readonly SyncedTableName[]
 
 /**
@@ -65,6 +67,15 @@ export function createDatabase(name = 'household-app'): HouseholdDatabase {
     await tx.table('rewards').toCollection().modify((row) => {
       row.emoji ??= '🎁'
       row.unlock ??= null
+    })
+  })
+  // v3: "je m'en occupe" and trades (CONCEPT §9 bis), Sunday recap preference.
+  db.version(3).stores({
+    claims: 'id, householdId, taskId',
+    trades: 'id, householdId',
+  }).upgrade(async (tx) => {
+    await tx.table('members').toCollection().modify((row) => {
+      row.notificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS, ...row.notificationPrefs }
     })
   })
   return db

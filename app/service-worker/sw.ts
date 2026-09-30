@@ -45,7 +45,8 @@ self.addEventListener('push', (event) => {
     // A replaced notification (same tag) still alerts: it carries new information.
     renotify: true,
     icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
+    // Android keeps only the alpha channel of the badge: a white silhouette on transparency.
+    badge: '/notification-badge.png',
     data: { url: payload.url },
   } as NotificationOptions))
 })

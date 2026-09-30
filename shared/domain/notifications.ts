@@ -1,14 +1,17 @@
-import { minutesOfDay, type LocalTime } from './calendar'
-import { QUIET_HOURS, SCHEDULED_NOTIFICATION_WINDOW_MINUTES } from './config'
+import { isoDayOfWeek, minutesOfDay, type LocalDate, type LocalTime } from './calendar'
+import { QUIET_HOURS, RECAP_TIME, SCHEDULED_NOTIFICATION_WINDOW_MINUTES } from './config'
 import type { Quest } from './quests'
+import { formatMinutes, type MemberWeek } from './recap'
 
 /**
  * Notification rules (CONCEPT §11): when a notification may be sent and what it says.
  * The server decides who receives what; these functions only depend on their arguments.
  */
 
-export type ScheduledNotificationKind = 'morning' | 'evening'
-export type NotificationKind = ScheduledNotificationKind | 'signal'
+export type ScheduledNotificationKind = 'morning' | 'evening' | 'recap'
+/** Instant notifications follow an action of the other member. */
+export type InstantNotificationKind = 'signal' | 'claim' | 'trade'
+export type NotificationKind = ScheduledNotificationKind | InstantNotificationKind
 
 /** Payload read by the service worker. */
 export interface NotificationMessage {
@@ -25,6 +28,8 @@ export interface ScheduledPrefs {
   morningTime: LocalTime
   evening: boolean
   eveningTime: LocalTime
+  /** Sunday recap; missing on preferences saved before it existed, which means on. */
+  recap?: boolean
 }
 
 export function isQuietTime(time: LocalTime): boolean {
@@ -37,7 +42,7 @@ export function isQuietTime(time: LocalTime): boolean {
  * the member wins over the quiet hours (a 7:30 morning is a choice), but a window never runs
  * into them: a late evening tick stays silent.
  */
-export function openScheduledWindows(prefs: ScheduledPrefs, time: LocalTime): ScheduledNotificationKind[] {
+export function openScheduledWindows(prefs: ScheduledPrefs, time: LocalTime, date: LocalDate): ScheduledNotificationKind[] {
   const now = minutesOfDay(time)
   const isOpen = (start: LocalTime) => {
     const from = minutesOfDay(start)
@@ -50,6 +55,9 @@ export function openScheduledWindows(prefs: ScheduledPrefs, time: LocalTime): Sc
   }
   if (prefs.evening && isOpen(prefs.eveningTime)) {
     kinds.push('evening')
+  }
+  if (prefs.recap !== false && isoDayOfWeek(date) === 7 && isOpen(RECAP_TIME)) {
+    kinds.push('recap')
   }
   return kinds
 }
@@ -116,4 +124,60 @@ export function signalMessage(alerts: readonly SignalAlert[]): NotificationMessa
     tag: 'signals',
     url: '/',
   }
+}
+
+/** The other member's week, to thank them. Nothing when they did nothing: never a reproach. */
+export function recapMessage(partnerName: string, week: MemberWeek): NotificationMessage | null {
+  if (!week.count) {
+    return null
+  }
+  const top = week.highlights[0]
+  return {
+    title: 'Notre semaine 💞',
+    body: `${partnerName} a fait ${plural(week.count, 'quête')} cette semaine (${formatMinutes(week.minutes)})${top ? `, dont ${top.task.name}` : ''}. Un merci ?`,
+    tag: 'recap',
+    url: '/recap',
+  }
+}
+
+export interface ClaimAlert {
+  memberName: string
+  taskName: string
+}
+
+export function claimMessage(claims: readonly ClaimAlert[]): NotificationMessage | null {
+  const [first] = claims
+  if (!first) {
+    return null
+  }
+  return {
+    title: `🙌 ${first.memberName} s'en occupe`,
+    body: `${listNames(claims.map(claim => claim.taskName), 3)}.`,
+    tag: 'claims',
+    url: '/',
+  }
+}
+
+export interface TradeAlert {
+  event: 'proposed' | 'accepted' | 'declined'
+  memberName: string
+  /** The deal from the recipient's point of view (see describeTrade). */
+  summary: string
+}
+
+const TRADE_TITLES: Record<TradeAlert['event'], (name: string) => string> = {
+  proposed: name => `🤝 ${name} te propose un échange`,
+  accepted: name => `🤝 ${name} a accepté l'échange`,
+  declined: name => `${name} ne peut pas cette fois`,
+}
+
+export function tradeMessage(alerts: readonly TradeAlert[]): NotificationMessage | null {
+  const [first] = alerts
+  if (!first) {
+    return null
+  }
+  if (alerts.length === 1) {
+    return { title: TRADE_TITLES[first.event](first.memberName), body: `${first.summary.charAt(0).toUpperCase()}${first.summary.slice(1)}.`, tag: 'trades', url: '/' }
+  }
+  return { title: `🤝 ${plural(alerts.length, 'nouvelle')} sur vos échanges`, body: 'Ouvre l\'app pour voir les propositions et les réponses.', tag: 'trades', url: '/' }
 }

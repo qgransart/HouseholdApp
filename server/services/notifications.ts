@@ -2,13 +2,23 @@ import { and, countDistinct, eq, inArray, isNull } from 'drizzle-orm'
 import {
   generateDailyQuests,
   buildTaskProgress,
+  claimMessage,
+  computeMemberWeek,
+  describeTrade,
+  recapMessage,
+  startOfWeek,
+  tradeMessage,
+  tradeStatus,
+  type ClaimAlert,
+  type LocalDate,
+  type TradeAlert,
   eveningMessage,
   isOnVacation,
   isQuietTime,
   MAX_NOTIFICATIONS_PER_DAY,
   morningMessage,
   openScheduledWindows,
-  SIGNAL_NOTIFICATION_MAX_AGE_HOURS,
+  INSTANT_NOTIFICATION_MAX_AGE_HOURS,
   signalMessage,
   toLocalDate,
   toLocalTime,
@@ -18,7 +28,7 @@ import {
   type Task,
 } from '#shared/domain'
 import { toDomainTask } from '#shared/mappers'
-import type { CategoryRow, CompletionRow, HouseholdRow, MemberRow, SignalRow, TaskRow, VacationRow } from '#shared/types/entities'
+import type { CategoryRow, ClaimRow, CompletionRow, HouseholdRow, MemberRow, SignalRow, TaskRow, TradeRow, VacationRow } from '#shared/types/entities'
 import type { Database } from '../db/client'
 import * as schema from '../db/schema'
 import { lockHousehold, toWire } from './sync'
@@ -45,7 +55,10 @@ export type PushSender = (target: PushTarget, message: NotificationMessage, opti
 const PUSH_OPTIONS: Record<NotificationKind, PushOptions> = {
   morning: { ttlSeconds: 2 * 3600, urgency: 'normal' },
   evening: { ttlSeconds: 2 * 3600, urgency: 'normal' },
+  recap: { ttlSeconds: 4 * 3600, urgency: 'normal' },
   signal: { ttlSeconds: 12 * 3600, urgency: 'high' },
+  claim: { ttlSeconds: 6 * 3600, urgency: 'normal' },
+  trade: { ttlSeconds: 12 * 3600, urgency: 'high' },
 }
 
 export interface SubscriptionInput {
@@ -104,10 +117,12 @@ interface HouseholdState {
   completions: CompletionRow[]
   signals: SignalRow[]
   vacations: VacationRow[]
+  claims: ClaimRow[]
+  trades: TradeRow[]
 }
 
 async function loadHouseholdState(db: Database, householdId: string): Promise<HouseholdState | null> {
-  const load = async <T>(table: typeof schema.members | typeof schema.categories | typeof schema.tasks | typeof schema.completions | typeof schema.signals | typeof schema.vacations) =>
+  const load = async <T>(table: typeof schema.members | typeof schema.categories | typeof schema.tasks | typeof schema.completions | typeof schema.signals | typeof schema.vacations | typeof schema.claims | typeof schema.trades) =>
     (await db.select().from(table).where(and(eq(table.householdId, householdId), isNull(table.deletedAt))))
       .map(row => toWire(row) as T)
   const [household] = await db.select().from(schema.households)
@@ -123,6 +138,8 @@ async function loadHouseholdState(db: Database, householdId: string): Promise<Ho
     completions: await load<CompletionRow>(schema.completions),
     signals: await load<SignalRow>(schema.signals),
     vacations: await load<VacationRow>(schema.vacations),
+    claims: await load<ClaimRow>(schema.claims),
+    trades: await load<TradeRow>(schema.trades),
   }
 }
 
@@ -130,9 +147,33 @@ async function loadHouseholdState(db: Database, householdId: string): Promise<Ho
 interface Plan {
   memberId: string
   kind: NotificationKind
-  items: { dedupeKey: string, alert?: SignalAlert }[]
+  items: PlanItem[]
+  /** Scheduled notifications; instant ones are built from the items left after deduplication. */
   message?: NotificationMessage
 }
+
+interface PlanItem {
+  dedupeKey: string
+  signal?: SignalAlert
+  claim?: ClaimAlert
+  trade?: TradeAlert
+}
+
+function buildMessage(plan: Plan, items: readonly PlanItem[]): NotificationMessage | null {
+  switch (plan.kind) {
+    case 'signal':
+      return signalMessage(items.flatMap(item => item.signal ? [item.signal] : []))
+    case 'claim':
+      return claimMessage(items.flatMap(item => item.claim ? [item.claim] : []))
+    case 'trade':
+      return tradeMessage(items.flatMap(item => item.trade ? [item.trade] : []))
+    default:
+      return plan.message ?? null
+  }
+}
+
+const isRecent = (instant: string | null, now: Date) =>
+  instant !== null && now.getTime() - Date.parse(instant) < INSTANT_NOTIFICATION_MAX_AGE_HOURS * 3600_000
 
 /** Manual signals of the tasks this member owns, raised by the other one and still open. */
 function openSignalAlerts(state: HouseholdState, memberId: string, now: Date): { signal: SignalRow, alert: SignalAlert }[] {
@@ -140,18 +181,53 @@ function openSignalAlerts(state: HouseholdState, memberId: string, now: Date): {
   const owners = new Map(state.categories.map(category => [category.id, category.ownerMemberId]))
   const names = new Map(state.members.map(member => [member.id, member.displayName]))
   const tasks = new Map(state.tasks.map(task => [task.id, task]))
-  const oldest = now.getTime() - SIGNAL_NOTIFICATION_MAX_AGE_HOURS * 3600_000
 
   return state.signals.flatMap((signal) => {
     const task = tasks.get(signal.taskId)
     const isOpen = signal.resolvedByCompletionId === null || !effectiveCompletionIds.has(signal.resolvedByCompletionId)
     if (!task || task.type !== 'signal' || !task.active || !isOpen || signal.isAutomatic || !signal.raisedBy
-      || signal.raisedBy === memberId || owners.get(task.categoryId) !== memberId || Date.parse(signal.raisedAt) < oldest) {
+      || signal.raisedBy === memberId || owners.get(task.categoryId) !== memberId || !isRecent(signal.raisedAt, now)) {
       return []
     }
     return [{ signal, alert: { label: task.signalLabel, taskName: task.name, raisedByName: names.get(signal.raisedBy) ?? 'L\'autre joueur' } }]
   })
 }
+
+/**
+ * "Je m'en occupe" of the other member that concern this one: a task of their rooms, or one
+ * they raised an alert on. Claims made by a trade are announced by the trade itself.
+ */
+function claimAlerts(state: HouseholdState, memberId: string, now: Date, today: LocalDate): { claim: ClaimRow, alert: ClaimAlert }[] {
+  const owners = new Map(state.categories.map(category => [category.id, category.ownerMemberId]))
+  const tasks = new Map(state.tasks.map(task => [task.id, task]))
+  const alertedTaskIds = new Set(openSignalAlerts(state, memberId, now).map(({ signal }) => signal.taskId))
+  return state.claims.flatMap((claim) => {
+    const task = tasks.get(claim.taskId)
+    const concerns = task && (owners.get(task.categoryId) === memberId || alertedTaskIds.has(task.id))
+    if (!task || !concerns || claim.memberId === memberId || claim.tradeId || claim.releasedAt || claim.claimedOn < today || !isRecent(claim.createdAt, now)) {
+      return []
+    }
+    return [{ claim, alert: { memberName: memberName(state, claim.memberId), taskName: task.name } }]
+  })
+}
+
+function tradeAlerts(state: HouseholdState, memberId: string, now: Date, today: LocalDate): PlanItem[] {
+  const tasks = new Map(state.tasks.map(task => [task.id, task.name]))
+  const labels = { taskName: (id: string) => tasks.get(id) ?? 'une tâche', memberName: (id: string) => memberName(state, id) }
+  return state.trades.flatMap((trade): PlanItem[] => {
+    const status = tradeStatus(trade, today)
+    if (trade.proposedTo === memberId && status === 'pending' && isRecent(trade.createdAt, now)) {
+      return [{ dedupeKey: `trade:${memberId}:${trade.id}:proposed`, trade: { event: 'proposed', memberName: labels.memberName(trade.proposedBy), summary: describeTrade(trade, memberId, labels) } }]
+    }
+    const answeredAt = trade.acceptedAt ?? trade.declinedAt
+    if (trade.proposedBy === memberId && (status === 'accepted' || status === 'declined') && isRecent(answeredAt, now)) {
+      return [{ dedupeKey: `trade:${memberId}:${trade.id}:answered`, trade: { event: status, memberName: labels.memberName(trade.proposedTo), summary: describeTrade(trade, memberId, labels) } }]
+    }
+    return []
+  })
+}
+
+const memberName = (state: HouseholdState, memberId: string) => state.members.find(m => m.id === memberId)?.displayName ?? 'L\'autre joueur'
 
 function planHousehold(state: HouseholdState, recipients: ReadonlySet<string>, options: { now: Date, scheduled: boolean }): Plan[] {
   const timeZone = state.household.timezone
@@ -165,28 +241,42 @@ function planHousehold(state: HouseholdState, recipients: ReadonlySet<string>, o
 
   for (const member of state.members.filter(m => recipients.has(m.id))) {
     const prefs = member.notificationPrefs
-    const windows = options.scheduled ? openScheduledWindows(prefs, time) : []
-    if (windows.length) {
-      const { pending } = generateDailyQuests({
-        memberId: member.id,
-        tasks: state.tasks,
-        categories: state.categories,
-        progress,
-        today,
-        vacations: state.vacations,
-        budgetMin: member.dailyBudgetMin,
-      })
-      for (const kind of windows) {
-        const message = kind === 'morning' ? morningMessage(pending) : eveningMessage(pending)
-        if (message) {
-          plans.push({ memberId: member.id, kind, items: [{ dedupeKey: `${kind}:${member.id}:${today}` }], message })
-        }
+    const windows = options.scheduled ? openScheduledWindows(prefs, time, today) : []
+    const partner = state.members.find(m => m.id !== member.id)
+    for (const kind of windows) {
+      let message: NotificationMessage | null
+      if (kind === 'recap') {
+        message = partner ? recapMessage(partner.displayName, computeMemberWeek({ memberId: partner.id, weekStart: startOfWeek(today), completions: state.completions, tasks: new Map(state.tasks.map(t => [t.id, t])), timeZone })) : null
+      }
+      else {
+        const { pending } = generateDailyQuests({
+          memberId: member.id,
+          tasks: state.tasks,
+          categories: state.categories,
+          progress,
+          today,
+          vacations: state.vacations,
+          budgetMin: member.dailyBudgetMin,
+          claims: state.claims,
+        })
+        message = kind === 'morning' ? morningMessage(pending) : eveningMessage(pending)
+      }
+      if (message) {
+        plans.push({ memberId: member.id, kind, items: [{ dedupeKey: `${kind}:${member.id}:${today}` }], message })
       }
     }
     if (prefs.alerts && !isQuietTime(time)) {
-      const alerts = openSignalAlerts(state, member.id, options.now)
-      if (alerts.length) {
-        plans.push({ memberId: member.id, kind: 'signal', items: alerts.map(({ signal, alert }) => ({ dedupeKey: `signal:${member.id}:${signal.id}`, alert })) })
+      const signals = openSignalAlerts(state, member.id, options.now)
+      if (signals.length) {
+        plans.push({ memberId: member.id, kind: 'signal', items: signals.map(({ signal, alert }) => ({ dedupeKey: `signal:${member.id}:${signal.id}`, signal: alert })) })
+      }
+      const claims = claimAlerts(state, member.id, options.now, today)
+      if (claims.length) {
+        plans.push({ memberId: member.id, kind: 'claim', items: claims.map(({ claim, alert }) => ({ dedupeKey: `claim:${member.id}:${claim.id}`, claim: alert })) })
+      }
+      const trades = tradeAlerts(state, member.id, options.now, today)
+      if (trades.length) {
+        plans.push({ memberId: member.id, kind: 'trade', items: trades })
       }
     }
   }
@@ -215,7 +305,7 @@ async function claim(db: Database, householdId: string, plans: readonly Plan[], 
     for (const plan of plans) {
       const items = plan.items.filter(item => !known.has(item.dedupeKey))
       const count = sentToday.get(plan.memberId) ?? 0
-      const message = plan.message ?? signalMessage(items.flatMap(item => item.alert ? [item.alert] : []))
+      const message = buildMessage(plan, items)
       if (!items.length || !message || count >= MAX_NOTIFICATIONS_PER_DAY) {
         continue
       }
@@ -256,8 +346,8 @@ async function notifyHousehold(db: Database, householdId: string, options: { now
   return sent
 }
 
-/** Called after a sync push: announces the signals just raised, without waiting for the next tick. */
-export function notifySignals(db: Database, input: { householdId: string, now: Date, sender: PushSender }): Promise<number> {
+/** Called after a sync push: announces signals, claims and trades right away, without waiting for the tick. */
+export function notifyInstant(db: Database, input: { householdId: string, now: Date, sender: PushSender }): Promise<number> {
   return notifyHousehold(db, input.householdId, { ...input, scheduled: false })
 }
 

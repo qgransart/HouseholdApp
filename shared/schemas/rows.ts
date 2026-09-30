@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TRADE_MAX_COINS } from '#shared/domain/config'
 import { ROOM_ICONS, type SyncedTableName } from '#shared/types/entities'
 
 /**
@@ -32,7 +33,15 @@ export const rowSchemas = {
     displayName: text(40),
     email: z.email().nullable(),
     dailyBudgetMin: z.number().int().min(5).max(240),
-    notificationPrefs: z.object({ morning: z.boolean(), morningTime: time, evening: z.boolean(), eveningTime: time, alerts: z.boolean() }),
+    notificationPrefs: z.object({
+      morning: z.boolean(),
+      morningTime: time,
+      evening: z.boolean(),
+      eveningTime: time,
+      alerts: z.boolean(),
+      // Devices not updated yet send preferences without it.
+      recap: z.boolean().default(true),
+    }),
   }),
   categories: z.object({
     ...synced,
@@ -101,6 +110,28 @@ export const rowSchemas = {
     ...synced,
     startsOn: localDate,
     endsOn: localDate,
+  }),
+  claims: z.object({
+    ...synced,
+    taskId: id,
+    memberId: id,
+    claimedOn: localDate,
+    createdAt: instant,
+    releasedAt: instant.nullable(),
+    tradeId: id.nullable(),
+  }),
+  trades: z.object({
+    ...synced,
+    proposedBy: id,
+    proposedTo: id,
+    requestTaskId: id,
+    offerTaskId: id.nullable(),
+    coins: count(TRADE_MAX_COINS),
+    dueOn: localDate,
+    createdAt: instant,
+    acceptedAt: instant.nullable(),
+    declinedAt: instant.nullable(),
+    cancelledAt: instant.nullable(),
   }),
 } satisfies Record<SyncedTableName, z.ZodType>
 

@@ -23,10 +23,12 @@ const TABLES: Record<SyncedTableName, SyncedTable> = {
   purchases: schema.purchases,
   reactions: schema.reactions,
   vacations: schema.vacations,
+  claims: schema.claims,
+  trades: schema.trades,
 }
 
 /** Columns stored as timestamptz: ISO strings on the wire, `Date` for the driver. */
-const INSTANT_FIELDS = new Set(['updatedAt', 'deletedAt', 'completedAt', 'undoneAt', 'raisedAt', 'purchasedAt', 'honoredAt', 'createdAt'])
+const INSTANT_FIELDS = new Set(['updatedAt', 'deletedAt', 'completedAt', 'undoneAt', 'raisedAt', 'purchasedAt', 'honoredAt', 'createdAt', 'releasedAt', 'acceptedAt', 'declinedAt', 'cancelledAt'])
 
 type Row = Record<string, unknown> & { id: string, householdId: string, updatedAt: string }
 

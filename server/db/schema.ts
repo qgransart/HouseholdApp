@@ -42,7 +42,7 @@ export const members = pgTable('members', {
   displayName: text().notNull(),
   email: text(),
   dailyBudgetMin: integer().notNull(),
-  notificationPrefs: jsonb().$type<NotificationPrefs>().notNull().default({ morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00', alerts: true }),
+  notificationPrefs: jsonb().$type<NotificationPrefs>().notNull().default({ morning: true, morningTime: '08:00', evening: true, eveningTime: '19:00', alerts: true, recap: true }),
 }, table => [
   index('members_household_rev_idx').on(table.householdId, table.rev),
   // One Google account belongs to one household at most (nulls are distinct in Postgres).
@@ -124,6 +124,30 @@ export const vacations = pgTable('vacations', {
   startsOn: date({ mode: 'string' }).notNull(),
   endsOn: date({ mode: 'string' }).notNull(),
 }, table => [index('vacations_household_rev_idx').on(table.householdId, table.rev)])
+
+export const claims = pgTable('claims', {
+  ...syncedColumns(),
+  taskId: uuid().notNull(),
+  memberId: uuid().notNull(),
+  claimedOn: date({ mode: 'string' }).notNull(),
+  createdAt: instant().notNull(),
+  releasedAt: instant(),
+  tradeId: uuid(),
+}, table => [index('claims_household_rev_idx').on(table.householdId, table.rev)])
+
+export const trades = pgTable('trades', {
+  ...syncedColumns(),
+  proposedBy: uuid().notNull(),
+  proposedTo: uuid().notNull(),
+  requestTaskId: uuid().notNull(),
+  offerTaskId: uuid(),
+  coins: integer().notNull(),
+  dueOn: date({ mode: 'string' }).notNull(),
+  createdAt: instant().notNull(),
+  acceptedAt: instant(),
+  declinedAt: instant(),
+  cancelledAt: instant(),
+}, table => [index('trades_household_rev_idx').on(table.householdId, table.rev)])
 
 /** Server only: single-use code letting the second member join (ARCHITECTURE §9). */
 export const invitations = pgTable('invitations', {

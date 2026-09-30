@@ -3,7 +3,10 @@ import { DEFAULT_TIMEZONE } from '~/db/repository'
 import {
   addDays,
   buildTaskProgress,
+  claimsOn,
   computeCoinBalance,
+  computeMemberWeek,
+  describeTrade,
   computeDuelScore,
   earnedBadgeIds,
   isOnVacation,
@@ -18,11 +21,14 @@ import {
   startOfWeek,
   suggestQuickTasks,
   toLocalDate,
+  tradeStatus,
   type Freshness,
+  type LocalDate,
+  type MemberWeek,
   type Task,
   type WeeklyGauge,
 } from '#shared/domain'
-import type { CategoryRow, CompletionRow, MemberRow, SignalRow } from '#shared/types/entities'
+import type { CategoryRow, ClaimRow, CompletionRow, MemberRow, SignalRow, TradeRow } from '#shared/types/entities'
 
 export type RoomCondition = 'clean' | 'average' | 'dirty'
 
@@ -60,6 +66,8 @@ export const useGame = createSharedComposable(() => {
   const completions = computed(() => snapshot.value?.completions ?? [])
   const signals = computed(() => snapshot.value?.signals ?? [])
   const vacations = computed(() => snapshot.value?.vacations ?? [])
+  const claims = computed(() => snapshot.value?.claims ?? [])
+  const trades = computed(() => snapshot.value?.trades ?? [])
 
   const progress = computed(() => buildTaskProgress({
     tasks: tasks.value,
@@ -86,6 +94,7 @@ export const useGame = createSharedComposable(() => {
     progress: progress.value,
     today: today.value,
     vacations: vacations.value,
+    claims: claims.value,
   }))
 
   const pendingQuests = computed(() => currentMember.value
@@ -133,7 +142,7 @@ export const useGame = createSharedComposable(() => {
   const totalXp = computed(() => computeTotalXp(completions.value))
   const level = computed(() => computeLevel(totalXp.value))
   const coins = computed(() => currentMember.value
-    ? computeCoinBalance(currentMember.value.id, completions.value, snapshot.value?.purchases ?? [])
+    ? computeCoinBalance(currentMember.value.id, completions.value, snapshot.value?.purchases ?? [], trades.value)
     : 0)
 
   const weeklyGauge = computed(() => computeWeeklyGauge({
@@ -194,6 +203,29 @@ export const useGame = createSharedComposable(() => {
     return completions.value.filter(c => isEffective(c) && toLocalDate(c.completedAt, timeZone.value) >= monday)
   })
 
+  /* Playing as a couple (CONCEPT §9 bis) */
+
+  /** "Je m'en occupe" in force today, by task. */
+  const claimsToday = computed(() => claimsOn(claims.value, today.value) as Map<string, ClaimRow>)
+
+  const tradeLabels = {
+    taskName: (id: string) => tasksById.value.get(id)?.name ?? 'une tâche supprimée',
+    memberName,
+  }
+  const describe = (trade: TradeRow) => describeTrade(trade, currentMember.value?.id ?? '', tradeLabels)
+
+  const liveTrades = computed(() => trades.value
+    .map(trade => ({ trade, status: tradeStatus(trade, today.value) }))
+    .sort((a, b) => b.trade.createdAt.localeCompare(a.trade.createdAt)))
+  const tradesReceived = computed(() => liveTrades.value.filter(t => t.status === 'pending' && t.trade.proposedTo === currentMember.value?.id).map(t => t.trade))
+  const tradesSent = computed(() => liveTrades.value.filter(t => t.status === 'pending' && t.trade.proposedBy === currentMember.value?.id).map(t => t.trade))
+  /** Accepted deals still to come: today's and tomorrow's. */
+  const tradesAgreed = computed(() => liveTrades.value.filter(t => t.status === 'accepted' && t.trade.dueOn >= today.value).map(t => t.trade))
+
+  function memberWeek(memberId: string, weekStart: LocalDate): MemberWeek {
+    return computeMemberWeek({ memberId, weekStart, completions: completions.value, tasks: tasksById.value, timeZone: timeZone.value })
+  }
+
   function duelScore(memberId: string) {
     return computeDuelScore({ memberId, tasks: tasks.value, categories: categories.value, weekCompletions: weekCompletions.value, today: today.value })
   }
@@ -248,6 +280,13 @@ export const useGame = createSharedComposable(() => {
     weekCompletions,
     duelScore,
     earnedBadges,
+    reactions,
+    claimsToday,
+    tradesReceived,
+    tradesSent,
+    tradesAgreed,
+    describeTrade: describe,
+    memberWeek,
     household: computed(() => snapshot.value?.household ?? null),
   }
 })

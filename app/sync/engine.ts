@@ -43,7 +43,11 @@ export async function pushOutbox(db: HouseholdDatabase, transport: SyncTransport
  */
 export async function pullChanges(db: HouseholdDatabase, transport: SyncTransport, options: { since?: number } = {}): Promise<number> {
   const since = options.since ?? await getMeta<number>(db, META_SYNC_CURSOR) ?? 0
-  const { rows, cursor } = await transport.pull(since)
+  const pulled = await transport.pull(since)
+  // A table added by a newer version of the app is skipped until this device updates.
+  const known = new Set(db.tables.map(table => table.name))
+  const rows = pulled.rows.filter(r => known.has(r.table))
+  const { cursor } = pulled
   await db.transaction('rw', [...new Set(rows.map(r => db.table(r.table))), db.outbox, db.meta], async () => {
     const pending = new Set((await db.outbox.toArray()).map(e => `${e.table}:${e.rowId}`))
     const byTable = new Map<SyncedTableName, unknown[]>()

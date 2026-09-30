@@ -82,6 +82,7 @@ const formatNumber = (value: number) => value.toLocaleString('fr-FR')
       :aria-labelledby="`trophy-tab-${tab}`"
     >
       <template v-if="tab === 'week'">
+        <GameRecapBanner always />
         <GamePanel
           title="XP de la maison"
           hint="6 dernières semaines"

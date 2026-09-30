@@ -30,6 +30,10 @@ function detail(task: Task): string {
   if (!task.active) {
     return 'Désactivée'
   }
+  const claim = game.claimsToday.value.get(task.id)
+  if (claim) {
+    return claim.memberId === game.currentMember.value?.id ? 'Tu t\'en occupes aujourd\'hui' : `${game.memberName(claim.memberId)} s'en occupe aujourd'hui`
+  }
   if (task.snoozedUntil && task.snoozedUntil >= game.today.value) {
     return `Reportée jusqu'au ${new Date(`${task.snoozedUntil}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`
   }

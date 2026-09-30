@@ -1,7 +1,8 @@
 import { ANTICIPATION_BONUS_RATE, POINTS_BY_SIZE } from './config'
 import type { FreshnessStatus } from './freshness'
 import { isEffective } from './progress'
-import type { Completion, Purchase, Task } from './types'
+import { tradeCoinDelta } from './trades'
+import type { Completion, Purchase, Task, Trade } from './types'
 
 export interface Reward {
   xp: number
@@ -23,14 +24,14 @@ export function computeReward(task: Task, freshnessStatus: FreshnessStatus | nul
 }
 
 /** Coins are never stored: the balance is always derived from the event log. */
-export function computeCoinBalance(memberId: string, completions: readonly Completion[], purchases: readonly Purchase[]): number {
+export function computeCoinBalance(memberId: string, completions: readonly Completion[], purchases: readonly Purchase[], trades: readonly Trade[] = []): number {
   const earned = completions
     .filter(completion => completion.memberId === memberId && isEffective(completion))
     .reduce((sum, completion) => sum + completion.coins, 0)
   const spent = purchases
     .filter(purchase => purchase.memberId === memberId)
     .reduce((sum, purchase) => sum + purchase.cost, 0)
-  return earned - spent
+  return earned - spent + tradeCoinDelta(memberId, trades)
 }
 
 export function computeTotalXp(completions: readonly Completion[]): number {

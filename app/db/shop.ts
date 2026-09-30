@@ -1,6 +1,6 @@
 import { v7 as uuidv7 } from 'uuid'
-import { computeCoinBalance } from '#shared/domain/points'
 import type { PurchaseRow } from '#shared/types/entities'
+import { coinBalance } from './couple'
 import type { HouseholdDatabase } from './database'
 import { DomainError } from './repository'
 import { notDeleted, updateRow, writeRows } from './write'
@@ -28,14 +28,12 @@ export async function createReward(db: HouseholdDatabase, input: { householdId: 
 }
 
 export async function purchaseReward(db: HouseholdDatabase, input: { rewardId: string, memberId: string, now: Date }): Promise<PurchaseRow> {
-  return db.transaction('rw', [db.rewards, db.completions, db.purchases, db.outbox], async () => {
+  return db.transaction('rw', [db.rewards, db.completions, db.purchases, db.trades, db.outbox], async () => {
     const reward = await db.rewards.get(input.rewardId)
     if (!reward || !notDeleted(reward) || !reward.active || reward.kind !== 'personal') {
       throw new DomainError('Cette récompense n\'est pas disponible.')
     }
-    const completions = (await db.completions.where('memberId').equals(input.memberId).toArray()).filter(notDeleted)
-    const purchases = (await db.purchases.where('memberId').equals(input.memberId).toArray()).filter(notDeleted)
-    if (computeCoinBalance(input.memberId, completions, purchases) < reward.cost) {
+    if (await coinBalance(db, reward.householdId, input.memberId) < reward.cost) {
       throw new DomainError('Pas assez de pièces pour cette récompense.')
     }
     const [purchase] = await writeRows(db, 'purchases', [{
